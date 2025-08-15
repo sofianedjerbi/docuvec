@@ -1,4 +1,4 @@
-# 🚀 RAGForge - Transform Any Document Into AI-Ready Intelligence
+# 📄 DocuVec
 
 <div align="center">
 
@@ -17,39 +17,39 @@
 
 ---
 
-## 🎯 What is RAGForge?
+## What is DocuVec?
 
-Ever wanted to build a ChatGPT for your own documents? **RAGForge** is the missing piece that transforms ANY collection of documents (PDFs, HTML, text) into a vector database ready for Retrieval-Augmented Generation (RAG).
+Ever wanted to build a ChatGPT for your own documents? **DocuVec** is the missing piece that transforms ANY collection of documents (PDFs, HTML, text) into a vector database ready for Retrieval-Augmented Generation (RAG).
 
 **In simple terms:** Feed it your documents → Get back AI-ready knowledge that can answer questions about your content.
 
-## ✨ Features
+## Features
 
-### 🧠 **Intelligent Processing**
+### **Intelligent Processing**
 - **Advanced text cleaning** that actually works (goodbye, corrupted PDFs!)
 - **Smart chunking** with semantic boundaries - no more sentences cut in half
 - **Automatic deduplication** - why embed the same content twice?
 - **Low-signal detection** - filters out references, footers, and noise
 
-### ⚡ **Production Ready**
+### **Production Ready**
 - **Batched embeddings** - 10x faster than individual API calls
 - **Smart caching** - Never process the same document twice
 - **Cost optimized** - ~$0.001 per 100 pages with OpenAI
 - **Modular architecture** - Swap components without breaking everything
 
-### 🔧 **Developer Friendly**
+### **Developer Friendly**
 ```bash
 # It's literally this simple
 pip install -r requirements.txt
 python main.py --sources your_docs.yaml
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/yourusername/ragforge.git
-cd ragforge
+git clone https://github.com/sofianedjerbi/docuvec.git
+cd docuvec
 pip install -r requirements.txt
 cp .env.example .env
 ```
@@ -79,7 +79,7 @@ python main.py
 
 **That's it!** Your documents are now vector embeddings ready for RAG.
 
-## 📚 Use Cases
+## Use Cases
 
 ### **Build a ChatGPT for your:**
 
@@ -90,11 +90,11 @@ python main.py
 - 💼 **Company Knowledge** - "What's our policy on remote work?"
 - 🔬 **Research Papers** - "What methods did Smith et al. use?"
 
-## 🔬 How It Works
+## How It Works
 
 ```mermaid
 graph LR
-    A[📄 Your Documents] --> B[🔄 RAGForge Pipeline]
+    A[📄 Your Documents] --> B[🔄 DocuVec Pipeline]
     B --> C[🧹 Clean & Normalize]
     C --> D[✂️ Smart Chunking]
     D --> E[🔢 Generate Embeddings]
@@ -108,7 +108,7 @@ graph LR
 4. **Embed** - Generates vector embeddings via OpenAI
 5. **Store** - Outputs JSONL ready for any vector database
 
-## 📊 What You Get
+## What You Get
 
 ```json
 {
@@ -124,19 +124,19 @@ graph LR
 }
 ```
 
-## 🎨 Real-World Example
+## Real-World Example
 
-I used RAGForge to process **970+ cloud certification documents** and built an exam question generator. It went from scattered PDFs to a working Q&A system in under an hour:
+I used DocuVec to process **970+ cloud certification documents** and built an exam question generator. It went from scattered PDFs to a working Q&A system in under an hour:
 
 - **Input**: 150+ PDFs from AWS, Azure, GCP
 - **Output**: 972 semantic chunks with embeddings
 - **Cost**: ~$0.50 total
 - **Result**: AI that answers certification questions with 85% accuracy
 
-## 🛠️ Advanced Features
+## Advanced Features
 
 <details>
-<summary><b>🎯 Smart Caching System</b></summary>
+<summary><b>Smart Caching System</b></summary>
 
 Never waste tokens on duplicate processing:
 - Content cache (24hr TTL)
@@ -150,7 +150,7 @@ python main.py --clear-cache   # Start fresh
 </details>
 
 <details>
-<summary><b>⚙️ Flexible Configuration</b></summary>
+<summary><b>Flexible Configuration</b></summary>
 
 Customize everything via `.env`:
 ```bash
@@ -162,7 +162,7 @@ EMBED_BATCH=64          # Batch size
 </details>
 
 <details>
-<summary><b>📈 Quality Metrics</b></summary>
+<summary><b>Quality Metrics</b></summary>
 
 Get detailed insights on your processed data:
 ```json
@@ -175,7 +175,7 @@ Get detailed insights on your processed data:
 ```
 </details>
 
-## 🤝 Contributing
+## Contributing
 
 We love contributions! Check out [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Technical architecture details
@@ -183,25 +183,25 @@ We love contributions! Check out [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - How to add new extractors
 - Pipeline extension points
 
-## 📝 License
+## License
 
 MIT - Use it for anything!
 
-## 🌟 Show Your Support
+## Show Your Support
 
-If RAGForge helped you build something cool:
-- ⭐ Star this repo
-- 💬 Share your use case in [Discussions](https://github.com/yourusername/ragforge/discussions)
-- 🐛 Report bugs in [Issues](https://github.com/yourusername/ragforge/issues)
+If DocuVec helped you build something cool:
+- Star this repo
+- Share your use case in [Discussions](https://github.com/sofianedjerbi/docuvec/discussions)
+- Report bugs in [Issues](https://github.com/sofianedjerbi/docuvec/issues)
 
 ---
 
 <div align="center">
 
-**Built with ❤️ by developers who were tired of wrestling with PDFs**
+**Built by developers who were tired of wrestling with PDFs**
 
 *Transform your documents into intelligence. Today.*
 
-[Get Started](#-quick-start) • [Read the Docs](CONTRIBUTING.md) • [Join Discussion](https://github.com/yourusername/ragforge/discussions)
+[Get Started](#-quick-start) • [Read the Docs](CONTRIBUTING.md) • [Join Discussion](https://github.com/sofianedjerbi/docuvec/discussions)
 
 </div>
