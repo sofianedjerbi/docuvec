@@ -1,0 +1,202 @@
+# RAGForge Source Configuration Example
+# 
+# This file defines the sources to be processed by the RAG pipeline.
+# Each source must have:
+#   - id: unique identifier
+#   - url: source document URL (PDF, HTML, or text)
+#   - title: human-readable title
+#   - tags: metadata for organization and filtering
+#
+# The 'type' field in tags determines the output path:
+#   - type + category + subcategory → organized directory structure
+#
+# Example output paths:
+#   - Legal document → legal/contracts/nda.jsonl
+#   - Medical guide → medical/guides/cardiology.jsonl
+#   - Technical docs → technical/apis/openai.jsonl
+#   - Educational content → education/courses/ml101.jsonl
+
+# ============================================================================
+# EXAMPLE: Technical Documentation
+# ============================================================================
+
+- id: "openai-api-docs"
+  url: "https://platform.openai.com/docs/api-reference"
+  title: "OpenAI API Reference"
+  tags:
+    type: "technical"          # Main category
+    category: "apis"           # Subcategory
+    subcategory: "openai"      # Specific topic
+    topics: ["gpt", "embeddings", "fine-tuning"]
+    difficulty: "intermediate"
+    version: "v1"
+
+- id: "react-hooks-guide"
+  url: "https://react.dev/reference/react"
+  title: "React Hooks Documentation"
+  tags:
+    type: "technical"
+    category: "frameworks"
+    subcategory: "react"
+    topics: ["hooks", "state", "effects"]
+    difficulty: "intermediate"
+    version: "18.2"
+
+# ============================================================================
+# EXAMPLE: Educational Content
+# ============================================================================
+
+- id: "ml-course-stanford"
+  url: "https://cs229.stanford.edu/notes2022fall/main_notes.pdf"
+  title: "Stanford CS229 Machine Learning Notes"
+  tags:
+    type: "education"
+    category: "courses"
+    subcategory: "machine-learning"
+    institution: "Stanford"
+    topics: ["supervised-learning", "neural-networks", "svm"]
+    difficulty: "advanced"
+    year: "2022"
+
+- id: "python-beginners"
+  url: "https://docs.python.org/3/tutorial/index.html"
+  title: "Python Tutorial for Beginners"
+  tags:
+    type: "education"
+    category: "tutorials"
+    subcategory: "python"
+    topics: ["basics", "data-structures", "modules"]
+    difficulty: "beginner"
+    version: "3.11"
+
+# ============================================================================
+# EXAMPLE: Legal Documents
+# ============================================================================
+
+- id: "gdpr-full-text"
+  url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32016R0679"
+  title: "General Data Protection Regulation (GDPR)"
+  tags:
+    type: "legal"
+    category: "regulations"
+    subcategory: "privacy"
+    jurisdiction: "EU"
+    topics: ["data-protection", "privacy", "compliance"]
+    year: "2016"
+
+- id: "terms-of-service-template"
+  url: "https://example.com/legal/tos-template.pdf"
+  title: "Standard Terms of Service Template"
+  tags:
+    type: "legal"
+    category: "contracts"
+    subcategory: "terms"
+    topics: ["liability", "disputes", "usage"]
+    jurisdiction: "US"
+
+# ============================================================================
+# EXAMPLE: Medical/Healthcare
+# ============================================================================
+
+- id: "covid19-treatment-guidelines"
+  url: "https://www.covid19treatmentguidelines.nih.gov/about-the-guidelines/guidelines-pdf/"
+  title: "COVID-19 Treatment Guidelines"
+  tags:
+    type: "medical"
+    category: "guidelines"
+    subcategory: "infectious-disease"
+    organization: "NIH"
+    topics: ["treatment", "diagnosis", "management"]
+    year: "2023"
+
+- id: "diabetes-management"
+  url: "https://professional.diabetes.org/sites/professional.diabetes.org/files/media/dc_40_s1_final.pdf"
+  title: "Standards of Medical Care in Diabetes"
+  tags:
+    type: "medical"
+    category: "standards"
+    subcategory: "endocrinology"
+    organization: "ADA"
+    topics: ["diabetes", "insulin", "monitoring"]
+    year: "2023"
+
+# ============================================================================
+# EXAMPLE: Business/Finance
+# ============================================================================
+
+- id: "sec-10k-filing-guide"
+  url: "https://www.sec.gov/files/form10-k.pdf"
+  title: "SEC Form 10-K Filing Guide"
+  tags:
+    type: "business"
+    category: "compliance"
+    subcategory: "sec-filings"
+    topics: ["annual-report", "disclosure", "financial-statements"]
+    jurisdiction: "US"
+
+- id: "startup-pitch-deck"
+  url: "https://example.com/resources/pitch-deck-template.pdf"
+  title: "Y Combinator Pitch Deck Template"
+  tags:
+    type: "business"
+    category: "templates"
+    subcategory: "fundraising"
+    topics: ["pitch", "investors", "startup"]
+    stage: "seed"
+
+# ============================================================================
+# EXAMPLE: Research Papers
+# ============================================================================
+
+- id: "attention-is-all-you-need"
+  url: "https://arxiv.org/pdf/1706.03762.pdf"
+  title: "Attention Is All You Need"
+  tags:
+    type: "research"
+    category: "papers"
+    subcategory: "nlp"
+    venue: "NeurIPS"
+    topics: ["transformers", "attention", "neural-networks"]
+    year: "2017"
+    citations: "50000+"
+
+# ============================================================================
+# OUTPUT PATH STRUCTURE
+# ============================================================================
+#
+# Based on the tags above, files will be organized as:
+#
+# data/
+# ├── chunks/
+# │   ├── technical/
+# │   │   ├── apis/
+# │   │   │   └── openai.jsonl
+# │   │   └── frameworks/
+# │   │       └── react.jsonl
+# │   ├── education/
+# │   │   ├── courses/
+# │   │   │   └── machine-learning.jsonl
+# │   │   └── tutorials/
+# │   │       └── python.jsonl
+# │   ├── legal/
+# │   │   ├── regulations/
+# │   │   │   └── privacy.jsonl
+# │   │   └── contracts/
+# │   │       └── terms.jsonl
+# │   ├── medical/
+# │   │   ├── guidelines/
+# │   │   │   └── infectious-disease.jsonl
+# │   │   └── standards/
+# │   │       └── endocrinology.jsonl
+# │   ├── business/
+# │   │   ├── compliance/
+# │   │   │   └── sec-filings.jsonl
+# │   │   └── templates/
+# │   │       └── fundraising.jsonl
+# │   └── research/
+# │       └── papers/
+# │           └── nlp.jsonl
+# └── embeds/
+#     └── [same structure as chunks/]
+#
+# The path is determined by: {type}/{category}/{subcategory}.jsonl
