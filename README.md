@@ -26,6 +26,7 @@ Ever wanted to build a ChatGPT for your own documents? **DocuVec** is the missin
 ## Features
 
 ### **Intelligent Processing**
+- **Battle-tested extraction** using trafilatura - automatically removes nav/ads/footers
 - **Advanced text cleaning** that actually works (goodbye, corrupted PDFs!)
 - **Smart chunking** with semantic boundaries - no more sentences cut in half
 - **Automatic deduplication** - why embed the same content twice?

@@ -14,6 +14,8 @@ A modular Python ETL pipeline that processes cloud certification documentation w
 - ✅ **Smart caching**: Settings-aware caching prevents duplicate token usage
 
 ### Advanced Text Cleaning
+- ✅ **Intelligent extraction**: Uses trafilatura for boilerplate removal
+- ✅ **Content-density heuristics**: Automatically removes nav/footer/sidebar/ads
 - ✅ **Unicode normalization**: NFC normalization, ligature fixes (ﬁ→fi, ﬀ→ff)
 - ✅ **Header/footer stripping**: Removes repetitive page elements
 - ✅ **Bullet normalization**: Consistent list formatting (•→-)

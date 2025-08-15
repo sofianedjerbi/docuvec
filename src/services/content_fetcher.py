@@ -1,16 +1,13 @@
-"""Content fetching service with caching and retry logic"""
+"""Content fetching service with trafilatura for intelligent extraction"""
 
 import io
-import re
 import time
 import json
 import hashlib
-import requests
 from typing import Optional, Dict, Any
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-from markdownify import markdownify as md
+import trafilatura
 from pypdf import PdfReader
 
 from src.models import Source
@@ -19,7 +16,7 @@ from src.services.text_processor import TextProcessor
 
 
 class ContentFetcher:
-    """Service for fetching and processing content from URLs"""
+    """Service for fetching and intelligently extracting content from URLs"""
     
     def __init__(self, cache_file: Path, request_delay: float = 1.0, 
                  max_retries: int = 4, timeout: int = 30):
@@ -54,28 +51,17 @@ class ContentFetcher:
         """Generate cache key for URL"""
         return hashlib.md5(url.encode()).hexdigest()
     
-    def _fetch_with_retry(self, url: str) -> requests.Response:
-        """Fetch URL with retry logic and exponential backoff"""
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        
-        for attempt in range(self.max_retries):
-            try:
-                response = requests.get(url, headers=headers, timeout=self.timeout)
-                response.raise_for_status()
-                return response
-            except requests.RequestException as e:
-                if attempt == self.max_retries - 1:
-                    raise e
-                wait_time = (2 ** attempt) * 0.5
-                self.logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {e}")
-                time.sleep(wait_time)
-    
-    def _extract_pdf_text(self, content: bytes) -> str:
-        """Extract text from PDF content"""
+    def _extract_pdf_text(self, url: str) -> Optional[str]:
+        """Extract text from PDF using direct download"""
         try:
-            reader = PdfReader(io.BytesIO(content))
+            # Download PDF content using trafilatura's fetch (handles retries)
+            downloaded = trafilatura.fetch_url(url, no_ssl=True, decode=False)
+            if not downloaded:
+                self.logger.error(f"Failed to download PDF: {url}")
+                return None
+            
+            # Extract text using pypdf
+            reader = PdfReader(io.BytesIO(downloaded))
             pages = []
             
             for page in reader.pages:
@@ -83,32 +69,51 @@ class ContentFetcher:
                 if text.strip():
                     pages.append(text)
             
-            full_text = "\n\n".join(pages)  # Better page separation
-            return full_text
+            full_text = "\n\n".join(pages)
+            return full_text if full_text.strip() else None
             
         except Exception as e:
             self.logger.error(f"Failed to extract PDF text: {e}")
-            return ""
+            return None
     
-    def _clean_html_content(self, html_content: str) -> str:
-        """Clean and convert HTML to markdown"""
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # Remove unwanted elements
-        for element in soup(["script", "style", "nav", "footer", "header", 
-                            "aside", "noscript", "iframe", "form"]):
-            element.decompose()
-        
-        # Remove table of contents if detected
-        for toc in soup.find_all(["div", "nav"], class_=re.compile(r"toc|table-of-contents", re.I)):
-            toc.decompose()
-        
-        # Convert to markdown
-        markdown = md(str(soup), heading_style="ATX")
-        
-        # Clean up excessive whitespace
-        lines = [line.strip() for line in markdown.split('\n') if line.strip()]
-        return '\n'.join(lines)
+    def _extract_web_content(self, url: str) -> Optional[str]:
+        """
+        Extract main content from web pages using trafilatura.
+        This handles HTML intelligently, removing boilerplate.
+        """
+        try:
+            # Download the page
+            downloaded = trafilatura.fetch_url(url, no_ssl=True, decode=True)
+            if not downloaded:
+                self.logger.warning(f"Failed to download: {url}")
+                return None
+            
+            # Extract main content (plain text for embeddings)
+            content = trafilatura.extract(
+                downloaded,
+                favor_recall=True,          # Better for documentation
+                include_comments=False,      # Skip comments sections
+                include_tables=True,         # Keep tables (important for docs)
+                include_formatting=False,    # Plain text (better for embeddings)
+                deduplicate=True,           # Remove duplicate content
+                target_language='en'        # Focus on English content
+            )
+            
+            if not content:
+                # Fallback to markdown extraction if plain text fails
+                self.logger.info(f"Trying markdown extraction for {url}")
+                content = trafilatura.extract(
+                    downloaded,
+                    output_format='markdown',
+                    favor_recall=True,
+                    include_tables=True
+                )
+            
+            return content
+            
+        except Exception as e:
+            self.logger.error(f"Failed to extract web content: {e}")
+            return None
     
     def fetch(self, source: Source) -> Optional[str]:
         """Fetch and process content from source URL"""
@@ -127,29 +132,32 @@ class ContentFetcher:
         self.logger.info(f"Fetching content for {source.id}: {source.url}")
         
         try:
-            response = self._fetch_with_retry(source.url)
-            content_type = response.headers.get('content-type', '').lower()
+            # Determine if URL is a PDF
+            is_pdf = (
+                "cms.rt.microsoft.com/cms/api/am/binary" in source.url or
+                source.url.lower().endswith('.pdf') or
+                '/pdf/' in source.url.lower() or
+                'format=pdf' in source.url.lower()
+            )
             
-            # Determine content type and process accordingly
-            if ("cms.rt.microsoft.com/cms/api/am/binary" in source.url or 
-                'application/pdf' in content_type or 
-                source.url.endswith('.pdf')):
+            if is_pdf:
                 # Extract PDF text
-                raw_text = self._extract_pdf_text(response.content)
-                if not raw_text.strip():
+                self.logger.info(f"Processing as PDF: {source.id}")
+                raw_text = self._extract_pdf_text(source.url)
+                if not raw_text:
                     self.logger.warning(f"No text extracted from PDF: {source.id}")
                     return None
-                # Process PDF text with text processor
+                # Process PDF text
                 content, metadata = self.text_processor.process_text(raw_text, "pdf")
-            elif 'text/html' in content_type:
-                # Clean HTML and convert to markdown
-                raw_text = self._clean_html_content(response.text)
-                # Process HTML text with text processor
-                content, metadata = self.text_processor.process_text(raw_text, "html")
             else:
-                # Plain text
-                raw_text = response.text
-                content, metadata = self.text_processor.process_text(raw_text, "general")
+                # Extract web content using trafilatura
+                self.logger.info(f"Processing as web content: {source.id}")
+                raw_text = self._extract_web_content(source.url)
+                if not raw_text:
+                    self.logger.warning(f"No content extracted from web page: {source.id}")
+                    return None
+                # Process web text
+                content, metadata = self.text_processor.process_text(raw_text, "html")
             
             # Check if content is valid
             if not metadata.get("is_valid", False):
@@ -165,7 +173,7 @@ class ContentFetcher:
                 'content': content,
                 'timestamp': time.time(),
                 'url': source.url,
-                'content_type': content_type,
+                'is_pdf': is_pdf,
                 'metadata': metadata
             }
             self._save_cache()
@@ -178,3 +186,10 @@ class ContentFetcher:
         except Exception as e:
             self.logger.error(f"Failed to fetch content for {source.id}: {e}")
             return None
+    
+    def clear_cache(self):
+        """Clear the content cache"""
+        self.cache = {}
+        if self.cache_file.exists():
+            self.cache_file.unlink()
+        self.logger.info("Content cache cleared")
