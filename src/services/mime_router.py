@@ -141,10 +141,8 @@ class MimeRouter:
         
         # Special URL patterns (fallback)
         if content_type == 'unknown':
-            if 'cms.rt.microsoft.com/cms/api/am/binary' in url:
-                content_type = 'pdf'
-                mime_type = 'application/pdf'
-            elif any(pattern in url.lower() for pattern in ['/pdf/', 'format=pdf', '.pdf']):
+            # Check for PDF patterns in URL
+            if any(pattern in url.lower() for pattern in ['/pdf/', 'format=pdf', '.pdf']):
                 content_type = 'pdf'
                 mime_type = 'application/pdf'
         

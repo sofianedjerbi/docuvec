@@ -19,15 +19,9 @@ class DataWriter:
         self.summary_file = summary_file
         self.logger = setup_logger(self.__class__.__name__)
         
-        # Create organized subdirectories for each provider
-        for provider in ['aws', 'azure', 'gcp']:
-            # Certification directories
-            (self.chunks_dir / provider / 'cert').mkdir(parents=True, exist_ok=True)
-            (self.embeds_dir / provider / 'cert').mkdir(parents=True, exist_ok=True)
-            
-            # Service directories  
-            (self.chunks_dir / provider / 'service').mkdir(parents=True, exist_ok=True)
-            (self.embeds_dir / provider / 'service').mkdir(parents=True, exist_ok=True)
+        # Base directories will be created on demand based on actual data
+        self.chunks_dir.mkdir(parents=True, exist_ok=True)
+        self.embeds_dir.mkdir(parents=True, exist_ok=True)
     
     def _write_jsonl(self, path: Path, records: List[Dict[str, Any]]):
         """Write records to JSONL format"""
@@ -65,24 +59,25 @@ class DataWriter:
         return resource_type, identifier
     
     def _organize_chunks_by_type(self, chunks: List[Chunk]) -> Dict[str, Dict[str, List[Chunk]]]:
-        """Organize chunks by provider and type (cert/service)
+        """Organize chunks by category and type
         
         Returns:
-            Nested dict: {provider: {type_identifier: [chunks]}}
+            Nested dict: {category: {type_identifier: [chunks]}}
         """
         organized = defaultdict(lambda: defaultdict(list))
         
         for chunk in chunks:
-            provider = chunk.provider.lower()
+            # Use provider as category, or 'general' if not specified
+            category = chunk.provider.lower() if chunk.provider else 'general'
             resource_type, identifier = self._classify_chunk(chunk)
             
             # Create key based on explicit type
             if resource_type == 'service':
-                key = f"service_{identifier}"  # e.g., 'service_ec2'
+                key = f"service_{identifier}"  # e.g., 'service_api'
             else:
-                key = identifier  # e.g., 'clf-c02' for cert
+                key = identifier  # e.g., 'document-001'
             
-            organized[provider][key].append(chunk)
+            organized[category][key].append(chunk)
         
         return dict(organized)
     
@@ -103,9 +98,9 @@ class DataWriter:
             'embeds': []
         }
         
-        # Process each provider
-        for provider, type_groups in organized.items():
-            provider_dir = provider.lower()
+        # Process each category
+        for category, type_groups in organized.items():
+            category_dir = category.lower()
             
             # Process each type group (cert or service)
             for key, type_chunks in type_groups.items():
@@ -141,24 +136,24 @@ class DataWriter:
                 
                 # Determine output path and filename
                 if key.startswith('service_'):
-                    # Service resource: aws/service/ec2.jsonl
+                    # Service resource: category/service/api.jsonl
                     service_name = key.replace('service_', '')
                     filename = f"{service_name}.jsonl"
                     subdir = 'service'
                 else:
-                    # Certification resource: aws/cert/clf-c02.jsonl
+                    # Document resource: category/documents/doc-001.jsonl
                     filename = f"{key}.jsonl"
-                    subdir = 'cert'
+                    subdir = chunk.resource_type if chunk.resource_type else 'documents'
                 
                 # Write chunk file
-                chunks_file = self.chunks_dir / provider_dir / subdir / filename
+                chunks_file = self.chunks_dir / category_dir / subdir / filename
                 self._write_jsonl(chunks_file, chunk_records)
                 files_written['chunks'].append(str(chunks_file))
                 self.logger.info(f"Wrote {len(chunk_records)} chunks to {chunks_file}")
                 
                 # Write embeddings file
                 if embed_records:
-                    embeds_file = self.embeds_dir / provider_dir / subdir / filename
+                    embeds_file = self.embeds_dir / category_dir / subdir / filename
                     self._write_jsonl(embeds_file, embed_records)
                     files_written['embeds'].append(str(embeds_file))
                     self.logger.info(f"Wrote {len(embed_records)} embeddings to {embeds_file}")
@@ -185,29 +180,29 @@ class DataWriter:
         }
         
         # Build organization summary
-        for provider, type_groups in organized.items():
-            summary['organization'][provider] = {
-                'certifications': [],
+        for category, type_groups in organized.items():
+            summary['organization'][category] = {
+                'documents': [],
                 'services': [],
                 'total_chunks': 0
             }
             
             for key, type_chunks in type_groups.items():
                 chunk_count = len(type_chunks)
-                summary['organization'][provider]['total_chunks'] += chunk_count
+                summary['organization'][category]['total_chunks'] += chunk_count
                 
                 if key.startswith('service_'):
                     service_name = key.replace('service_', '')
-                    summary['organization'][provider]['services'].append({
+                    summary['organization'][category]['services'].append({
                         'name': service_name,
                         'chunks': chunk_count,
-                        'file': f"{provider}/service/{service_name}.jsonl"
+                        'file': f"{category}/service/{service_name}.jsonl"
                     })
                 else:
-                    summary['organization'][provider]['certifications'].append({
-                        'code': key,
+                    summary['organization'][category]['documents'].append({
+                        'id': key,
                         'chunks': chunk_count,
-                        'file': f"{provider}/cert/{key}.jsonl"
+                        'file': f"{category}/{type_chunks[0].resource_type if type_chunks else 'documents'}/{key}.jsonl"
                     })
         
         # Gather statistics

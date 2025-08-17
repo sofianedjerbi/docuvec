@@ -20,7 +20,7 @@ from src.utils.validation import verify_sources
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description="RAG ETL Pipeline - Process certification documentation with embeddings"
+        description="DocuVec - Intelligent ETL pipeline for document embeddings"
     )
     parser.add_argument(
         "--sources",

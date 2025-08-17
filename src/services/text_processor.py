@@ -11,19 +11,19 @@ from src.core.logger import setup_logger
 class TextProcessor:
     """Service for cleaning and normalizing text before chunking"""
     
-    # Common headers/footers to remove (AWS-focused patterns)
+    # Common headers/footers to remove (generic patterns)
     HEADER_FOOTER_PATTERNS = [
-        r"^Operational Excellence Pillar AWS Well-Architected Framework$",
-        r"^AWS Well-Architected Framework$",
-        r"^AWS Certified.*Exam Guide$",
-        r"^Page \d+ of \d+$",
-        r"^OPS\d{2}-BP\d{2}.*$",  # AWS section labels
-        r"^Copyright.*Amazon.*\d{4}",
-        r"^©.*Amazon Web Services.*",
-        r"^AWS.*\| \d+ \|.*$",  # AWS page numbers
+        r"^Page \d+ of \d+$",  # Page numbers
         r"^\d{1,4}$",  # Lone page numbers
         r"^Table of Contents$",
         r"^Contents$",
+        r"^Copyright.*\d{4}",  # Copyright notices
+        r"^©.*\d{4}",  # Copyright symbol
+        r"^All [Rr]ights [Rr]eserved",
+        r"^Confidential",
+        r"^Proprietary",
+        r"^Draft",
+        r"^Version \d+",
     ]
     
     # Low-signal section headers

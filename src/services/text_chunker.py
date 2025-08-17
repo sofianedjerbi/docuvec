@@ -92,8 +92,8 @@ class TextChunker:
         
         domain_exam = tags.get('domain_exam', '')
         certification = tags.get('certification', '')
-        provider = tags.get('provider', 'AWS')
-        resource_type = tags.get('type', 'cert')
+        provider = tags.get('provider', '')  # No default provider
+        resource_type = tags.get('type', 'document')  # Generic default
         language = tags.get('language', 'en')
         
         if use_structure:
