@@ -218,6 +218,11 @@ class StructureChunker:
                 # Update heading hierarchy
                 current_headings = section.parent_headings + [section.heading]
             
+            # Check if this section alone exceeds max tokens
+            if section_tokens > self.max_tokens:
+                self.logger.warning(f"Section too large ({section_tokens} tokens), skipping to avoid oversized chunks")
+                continue
+            
             # Check if adding this section would exceed max tokens
             if current_token_count + section_tokens > self.max_tokens and current_chunk_sections:
                 # Create chunk from current sections
@@ -288,6 +293,11 @@ class StructureChunker:
         # Calculate tokens
         tokens = self.tokenizer.encode(chunk_text)
         token_count = len(tokens)
+        
+        # Safety check: reject oversized chunks
+        if token_count > self.max_tokens:
+            self.logger.warning(f"Chunk too large ({token_count} tokens), rejecting to prevent embedding failure")
+            return None
         
         # Build hierarchical title
         title_parts = []

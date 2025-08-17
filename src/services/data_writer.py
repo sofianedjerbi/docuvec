@@ -23,6 +23,15 @@ class DataWriter:
         self.chunks_dir.mkdir(parents=True, exist_ok=True)
         self.embeds_dir.mkdir(parents=True, exist_ok=True)
     
+    def _serialize_datetime(self, dt) -> str:
+        """Convert datetime object to ISO format string for JSON serialization"""
+        if dt is None:
+            return None
+        if hasattr(dt, 'isoformat'):
+            return dt.isoformat()
+        # If it's already a string, return as-is
+        return dt
+
     def _write_jsonl(self, path: Path, records: List[Dict[str, Any]]):
         """Write records to JSONL format"""
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -31,30 +40,70 @@ class DataWriter:
             for record in records:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
     
+    def _build_chunk_record(self, chunk: Chunk) -> dict:
+        """Build chunk record with content and metadata (no embeddings)"""
+        return {
+            # Core identification
+            "id": chunk.id,
+            "doc_id": chunk.doc_id,
+            "text": chunk.text,
+            
+            # URL and source info
+            "source_url": chunk.source_url,
+            "canonical_url": chunk.canonical_url,
+            "domain": chunk.domain,
+            "path": chunk.path,
+            
+            # Content metadata
+            "page_title": chunk.page_title,
+            "title_hierarchy": chunk.title_hierarchy,
+            "lang": chunk.lang,
+            "content_type": chunk.content_type,
+            
+            # Chunk positioning
+            "chunk_index": chunk.chunk_index,
+            "total_chunks": chunk.total_chunks,
+            "chunk_char_start": getattr(chunk, 'chunk_char_start', None),
+            "chunk_char_end": getattr(chunk, 'chunk_char_end', None),
+            "tokens": getattr(chunk, 'tokens', 0),
+            
+            # Quality and type
+            "is_low_signal": chunk.is_low_signal,
+            "section_type": getattr(chunk, 'section_type', 'content'),
+            
+            # Legacy fields for backward compatibility
+            "provider": chunk.provider,
+            "resource_type": chunk.resource_type,
+            "service": getattr(chunk, 'service', []),
+            "domain_exam": getattr(chunk, 'domain_exam', ''),
+            "certification": getattr(chunk, 'certification', ''),
+            
+            # Timestamps (convert to ISO format for JSON serialization)
+            "crawl_ts": self._serialize_datetime(getattr(chunk, 'crawl_ts', None)),
+            "published_at": self._serialize_datetime(getattr(chunk, 'published_at', None)),
+            "modified_at": self._serialize_datetime(getattr(chunk, 'modified_at', None)),
+        }
+    
+    def _build_embed_record(self, chunk: Chunk) -> dict:
+        """Build embedding record with ID and vector only"""
+        return {
+            "id": chunk.id,
+            "embedding": chunk.embedding
+        }
+
     def _classify_chunk(self, chunk: Chunk) -> Tuple[str, str]:
         """Get chunk type and identifier from explicit metadata
         
         Returns:
             Tuple of (type, identifier) where:
-            - type is 'cert' or 'service' from metadata
-            - identifier is the resource name
+            - type is the resource type from metadata
+            - identifier is the source ID (doc_id) to ensure one file per source
         """
-        # Get explicit type from chunk metadata
-        resource_type = chunk.resource_type  # 'cert' or 'service'
+        # Get resource type, default to 'document'
+        resource_type = chunk.resource_type or 'document'
         
-        if resource_type == 'cert':
-            # Use certification code as identifier
-            identifier = chunk.certification.lower() if chunk.certification else 'unknown'
-        elif resource_type == 'service':
-            # Use first service name as identifier
-            if chunk.service and len(chunk.service) > 0 and chunk.service[0]:
-                identifier = chunk.service[0].lower().replace(' ', '-')
-            else:
-                identifier = 'general'
-        else:
-            # Fallback if type not specified
-            self.logger.warning(f"Unknown resource type '{resource_type}' for chunk {chunk.id}")
-            identifier = 'unknown'
+        # Use doc_id as identifier to ensure one file per source
+        identifier = chunk.doc_id if chunk.doc_id else 'unknown'
         
         return resource_type, identifier
     
@@ -71,16 +120,68 @@ class DataWriter:
             category = chunk.provider.lower() if chunk.provider else 'general'
             resource_type, identifier = self._classify_chunk(chunk)
             
-            # Create key based on explicit type
-            if resource_type == 'service':
-                key = f"service_{identifier}"  # e.g., 'service_api'
-            else:
-                key = identifier  # e.g., 'document-001'
+            # Use identifier (doc_id) as key for grouping
+            key = identifier
             
             organized[category][key].append(chunk)
         
         return dict(organized)
     
+    def write_source_chunks(self, source, chunks: List[Chunk]) -> dict:
+        """Write chunks from a single source to JSONL file immediately
+        
+        Args:
+            source: Source object for metadata
+            chunks: List of chunks from this source
+            
+        Returns:
+            dict with file paths written
+        """
+        if not chunks:
+            return {"chunks_file": None, "embeds_file": None}
+        
+        # Get provider and resource type from first chunk
+        sample_chunk = chunks[0]
+        category = sample_chunk.provider.lower() if sample_chunk.provider else 'general'
+        resource_type = sample_chunk.resource_type or 'document'
+        
+        # Use source ID as filename
+        filename = f"{source.id}.jsonl"
+        
+        # Prepare records
+        chunk_records = []
+        embed_records = []
+        
+        for chunk in chunks:
+            # Build chunk record (content and metadata only)
+            chunk_record = self._build_chunk_record(chunk)
+            chunk_records.append(chunk_record)
+            
+            # Build embedding record (ID and vector only)
+            if chunk.embedding:
+                embed_record = self._build_embed_record(chunk)
+                embed_records.append(embed_record)
+        
+        # Write files
+        chunks_file = self.chunks_dir / category / resource_type / filename
+        self._write_jsonl(chunks_file, chunk_records)
+        
+        embeds_file = None
+        if embed_records:
+            embeds_file = self.embeds_dir / category / resource_type / filename
+            self._write_jsonl(embeds_file, embed_records)
+        
+        self.logger.info(f"✅ Wrote {len(chunk_records)} chunks to {chunks_file}")
+        if embeds_file:
+            self.logger.info(f"✅ Wrote {len(embed_records)} embeddings to {embeds_file}")
+        
+        return {
+            "chunks_file": str(chunks_file),
+            "embeds_file": str(embeds_file) if embeds_file else None,
+            "chunk_count": len(chunk_records),
+            "embed_count": len(embed_records)
+        }
+
     def write_chunks(self, chunks: List[Chunk], embed_model: str):
         """Write chunks to JSONL files organized by provider/type"""
         if not chunks:
@@ -139,16 +240,9 @@ class DataWriter:
                         }
                         embed_records.append(embed_record)
                 
-                # Determine output path and filename
-                if key.startswith('service_'):
-                    # Service resource: category/service/api.jsonl
-                    service_name = key.replace('service_', '')
-                    filename = f"{service_name}.jsonl"
-                    subdir = 'service'
-                else:
-                    # Document resource: category/documents/doc-001.jsonl
-                    filename = f"{key}.jsonl"
-                    subdir = chunk.resource_type if chunk.resource_type else 'documents'
+                # Use doc_id as filename and resource_type as subdirectory
+                filename = f"{key}.jsonl"
+                subdir = type_chunks[0].resource_type if type_chunks and type_chunks[0].resource_type else 'document'
                 
                 # Write chunk file
                 chunks_file = self.chunks_dir / category_dir / subdir / filename

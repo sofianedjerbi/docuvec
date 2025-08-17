@@ -173,7 +173,12 @@ class ContentFetcher:
                 raw_text = extraction_method(response.content)
             
             if not raw_text:
-                self.logger.warning(f"No content extracted from {content_type}: {source.id}")
+                self.logger.warning(f"❌ No content extracted from {content_type}: {source.id}")
+                self.logger.warning(f"   URL: {source.url}")
+                self.logger.warning(f"   Content-Type: {mime_type}")
+                self.logger.warning(f"   Response size: {len(response.content):,} bytes")
+                if hasattr(self.extractors, 'last_metadata') and self.extractors.last_metadata:
+                    self.logger.warning(f"   Extractor metadata: {self.extractors.last_metadata}")
                 return None
             
             # Process extracted text
@@ -202,9 +207,12 @@ class ContentFetcher:
                 self.logger.warning(f"Content too short or invalid for {source.id}")
                 return None
             
-            # Log if low-signal content
+            # Log if low-signal content with details
             if metadata.get("is_low_signal", False):
-                self.logger.info(f"Low-signal content detected for {source.id}")
+                self.logger.info(f"⚠️  Low-signal content detected for {source.id}")
+                self.logger.info(f"   Reason: {metadata.get('low_signal_reason', 'Not specified')}")
+                self.logger.info(f"   Word count: {metadata.get('word_count', 'Unknown')}")
+                self.logger.info(f"   Content preview: {content[:100] if content else 'Empty'}...")
             
             # Cache the processed content
             # Include extractor metadata if available

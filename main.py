@@ -169,10 +169,10 @@ def main():
             cache.invalidate_cache("User requested cache clear")
             print("All caches cleared successfully")
         
-        # Run pipeline
+        # Run streaming pipeline
         logger.info("Initializing ETL pipeline...")
         orchestrator = ETLOrchestrator(config)
-        orchestrator.run()
+        orchestrator.run_streaming()
         
     except ValueError as e:
         logger.error(f"Configuration error: {e}")

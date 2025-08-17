@@ -96,7 +96,10 @@ class TextChunker:
         resource_type = tags.get('type', 'document')  # Generic default
         language = tags.get('language', 'en')
         
-        if use_structure:
+        # Skip structure chunking for PDFs (they rarely have markdown headings)
+        is_pdf = source.url.lower().endswith('.pdf') or 'pdf' in source.url.lower()
+        
+        if use_structure and not is_pdf:
             # Try structure-aware chunking first
             try:
                 structured_chunks = self.structure_chunker.chunk_text(
