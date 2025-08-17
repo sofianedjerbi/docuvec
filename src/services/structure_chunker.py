@@ -220,7 +220,37 @@ class StructureChunker:
             
             # Check if this section alone exceeds max tokens
             if section_tokens > self.max_tokens:
-                self.logger.warning(f"Section too large ({section_tokens} tokens), skipping to avoid oversized chunks")
+                self.logger.info(f"Section too large ({section_tokens} tokens), splitting into smaller chunks")
+                # Split the large section into smaller chunks
+                split_sections = self._split_large_section(section)
+                for split_section in split_sections:
+                    # Process each split section as if it were a normal section
+                    split_text = split_section.heading + "\n" + split_section.content if split_section.heading else split_section.content
+                    split_tokens = len(self.tokenizer.encode(split_text))
+                    
+                    # Check if adding this split would exceed max tokens
+                    if current_token_count + split_tokens > self.max_tokens and current_chunk_sections:
+                        # Create chunk from current sections
+                        chunk = self._create_chunk_from_sections(
+                            current_chunk_sections,
+                            page_title,
+                            current_headings,
+                            len(chunks),
+                            page_language
+                        )
+                        if chunk and not chunk.is_low_signal:
+                            chunks.append(chunk)
+                        
+                        # Start new chunk with overlap
+                        current_chunk_sections = self._get_overlap_sections(current_chunk_sections)
+                        current_token_count = sum(
+                            len(self.tokenizer.encode(s.heading + "\n" + s.content if s.heading else s.content))
+                            for s in current_chunk_sections
+                        )
+                    
+                    # Add split section to current chunk
+                    current_chunk_sections.append(split_section)
+                    current_token_count += split_tokens
                 continue
             
             # Check if adding this section would exceed max tokens
@@ -332,6 +362,178 @@ class StructureChunker:
                 "language": page_language
             }
         )
+    
+    def _split_large_section(self, section: DocumentSection) -> List[DocumentSection]:
+        """
+        Split a large section into smaller chunks while respecting sentence boundaries
+        and HTML structure
+        
+        Args:
+            section: The large DocumentSection to split
+            
+        Returns:
+            List of smaller DocumentSection objects
+        """
+        import re
+        
+        content = section.content
+        if not content:
+            return []
+        
+        # Try to split by paragraphs first (double newlines or <p> tags)
+        paragraphs = re.split(r'\n\n+|<p[^>]*>|</p>', content)
+        paragraphs = [p.strip() for p in paragraphs if p.strip()]
+        
+        # If we have reasonable paragraphs, use them
+        if len(paragraphs) > 1:
+            return self._create_splits_from_paragraphs(section, paragraphs)
+        
+        # Otherwise, split by sentences
+        # Enhanced sentence splitting that respects common abbreviations
+        sentences = self._split_into_sentences(content)
+        
+        if len(sentences) > 1:
+            return self._create_splits_from_sentences(section, sentences)
+        
+        # Last resort: split by token count (but try to break at word boundaries)
+        return self._create_splits_by_tokens(section, content)
+    
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """Split text into sentences, respecting abbreviations and edge cases"""
+        # Common abbreviations that shouldn't end sentences
+        abbrevs = r'(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|Ph\.D|M\.D|B\.A|M\.A|B\.S|M\.S|i\.e|e\.g|vs|etc|Inc|Ltd|Corp|Co|U\.S|U\.K|E\.U|U\.N|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)'
+        
+        # Split on sentence endings but not after abbreviations
+        pattern = r'(?<![A-Z][a-z])\. (?=[A-Z])|(?<![' + abbrevs + r'])\. |\? |\! '
+        sentences = re.split(pattern, text)
+        
+        # Clean up and filter
+        sentences = [s.strip() for s in sentences if s.strip()]
+        
+        # Rejoin very short sentences that might be fragments
+        result = []
+        current = ""
+        for sent in sentences:
+            if len(current) > 0 and len(sent.split()) < 5:
+                current += ". " + sent
+            else:
+                if current:
+                    result.append(current)
+                current = sent
+        if current:
+            result.append(current)
+        
+        return result
+    
+    def _create_splits_from_paragraphs(self, section: DocumentSection, paragraphs: List[str]) -> List[DocumentSection]:
+        """Create DocumentSection splits from paragraphs"""
+        splits = []
+        current_content = []
+        current_tokens = 0
+        
+        for para in paragraphs:
+            para_tokens = len(self.tokenizer.encode(para))
+            
+            # If this paragraph alone exceeds max, split it further
+            if para_tokens > self.max_tokens:
+                # Flush current content first
+                if current_content:
+                    splits.append(self._create_split_section(section, '\n\n'.join(current_content), len(splits)))
+                    current_content = []
+                    current_tokens = 0
+                
+                # Split this paragraph by sentences
+                sentences = self._split_into_sentences(para)
+                sentence_splits = self._create_splits_from_sentences(section, sentences)
+                splits.extend(sentence_splits)
+                continue
+            
+            # Check if adding this paragraph would exceed limit
+            if current_tokens + para_tokens > self.max_tokens * 0.9 and current_content:  # Leave some buffer
+                splits.append(self._create_split_section(section, '\n\n'.join(current_content), len(splits)))
+                current_content = [para]
+                current_tokens = para_tokens
+            else:
+                current_content.append(para)
+                current_tokens += para_tokens
+        
+        # Add remaining content
+        if current_content:
+            splits.append(self._create_split_section(section, '\n\n'.join(current_content), len(splits)))
+        
+        return splits
+    
+    def _create_splits_from_sentences(self, section: DocumentSection, sentences: List[str]) -> List[DocumentSection]:
+        """Create DocumentSection splits from sentences"""
+        splits = []
+        current_content = []
+        current_tokens = 0
+        
+        for sent in sentences:
+            sent_tokens = len(self.tokenizer.encode(sent))
+            
+            # If single sentence exceeds max, split by tokens
+            if sent_tokens > self.max_tokens:
+                # Flush current content
+                if current_content:
+                    splits.append(self._create_split_section(section, ' '.join(current_content), len(splits)))
+                    current_content = []
+                    current_tokens = 0
+                
+                # Split this sentence by tokens
+                token_splits = self._create_splits_by_tokens(section, sent)
+                splits.extend(token_splits)
+                continue
+            
+            # Check if adding this sentence would exceed limit
+            if current_tokens + sent_tokens > self.max_tokens * 0.9 and current_content:
+                splits.append(self._create_split_section(section, ' '.join(current_content), len(splits)))
+                current_content = [sent]
+                current_tokens = sent_tokens
+            else:
+                current_content.append(sent)
+                current_tokens += sent_tokens
+        
+        # Add remaining content
+        if current_content:
+            splits.append(self._create_split_section(section, ' '.join(current_content), len(splits)))
+        
+        return splits
+    
+    def _create_splits_by_tokens(self, section: DocumentSection, content: str) -> List[DocumentSection]:
+        """Last resort: split by token count at word boundaries"""
+        words = content.split()
+        splits = []
+        current_words = []
+        current_tokens = 0
+        
+        for word in words:
+            word_tokens = len(self.tokenizer.encode(word))
+            
+            if current_tokens + word_tokens > self.max_tokens * 0.9 and current_words:
+                splits.append(self._create_split_section(section, ' '.join(current_words), len(splits)))
+                current_words = [word]
+                current_tokens = word_tokens
+            else:
+                current_words.append(word)
+                current_tokens += word_tokens
+        
+        # Add remaining content
+        if current_words:
+            splits.append(self._create_split_section(section, ' '.join(current_words), len(splits)))
+        
+        return splits
+    
+    def _create_split_section(self, original: DocumentSection, content: str, split_index: int) -> DocumentSection:
+        """Create a new DocumentSection from a split"""
+        # Create new section preserving metadata
+        split_section = DocumentSection(
+            level=original.level,
+            heading=original.heading if split_index == 0 else f"{original.heading} (part {split_index + 1})" if original.heading else "",
+            content=content,
+            parent_headings=original.parent_headings
+        )
+        return split_section
     
     def _get_overlap_sections(self, sections: List[DocumentSection]) -> List[DocumentSection]:
         """Get sections for overlap in next chunk"""
