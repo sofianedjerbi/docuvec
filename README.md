@@ -1,4 +1,4 @@
-# 🚀 DocuVec
+# 🧬 DocuVec
 
 <div align="center">
 
