@@ -191,6 +191,17 @@ class Chunk:
     embedding_model: Optional[str] = None
     embedding_dim: Optional[int] = None
     
+    # === BACKWARD COMPATIBILITY === (Legacy fields)
+    category: str = "general"  # Legacy field for compatibility
+    subcategory: str = ""  # Legacy field for compatibility
+    tags: List[str] = field(default_factory=list)  # Legacy field for compatibility
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Legacy field for compatibility
+    service: List[str] = field(default_factory=list)  # Legacy field
+    domain_exam: str = ""  # Legacy field
+    certification: str = ""  # Legacy field
+    provider: str = ""  # Legacy field
+    resource_type: str = "document"  # Legacy field
+    
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         result = {
@@ -286,6 +297,17 @@ class Chunk:
             
             # Versioning
             "schema_version": self.schema_version,
+            
+            # Backward compatibility fields
+            "category": self.category,
+            "subcategory": self.subcategory,
+            "tags": self.tags,
+            "metadata": self.metadata,
+            "service": self.service,
+            "domain_exam": self.domain_exam,
+            "certification": self.certification,
+            "provider": self.provider,
+            "resource_type": self.resource_type,
         }
         
         # Add embedding if present
