@@ -4,56 +4,44 @@
 
 Complete schema specification for DocuVec chunks:
 
+### Example Chunk
 ```json
 {
-  // === CORE FIELDS ===
-  "id": "doc_id#00001-hash",           // Unique chunk identifier
-  "doc_id": "a3f5b2c8",                // Stable document ID from canonical URL
-  "text": "The actual chunk content...", // Cleaned, extracted text
-  "embedding": [0.123, -0.456, ...],   // Vector embedding (1536D or 3072D)
-  
-  // === VERSIONING & AUDITABILITY ===
-  "schema_version": "2.0.0",           // Schema version for migrations
-  "pipeline_version": "abc123def",     // ETL pipeline version hash
-  "embedding_model": "text-embedding-3-small",  // Model used for vectors
-  "embedding_dim": 1536,                // Embedding dimensions
-  "tokenizer": "cl100k_base",          // Tokenizer used for chunking
-  
-  // === URL & NAVIGATION ===
+  "id": "doc_id#00001-hash",
+  "doc_id": "a3f5b2c8",
+  "text": "The actual chunk content...",
+  "embedding": [0.123, -0.456],
+  "schema_version": "2.0.0",
+  "pipeline_version": "abc123def",
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dim": 1536,
+  "tokenizer": "cl100k_base",
   "source_url": "https://example.com/docs/api.html#section",
-  "canonical_url": "https://example.com/docs/api.html",  // Normalized URL
-  "domain": "example.com",             // Domain for filtering
-  "path": "/docs/api.html",            // Path for section filtering
-  "anchor_url": "https://example.com/docs/api.html#auth",  // Deep link
-  "page_num": 42,                      // PDF page number (if applicable)
-  "anchor_id": "auth",                 // HTML anchor ID
-  
-  // === CONTENT METADATA ===
+  "canonical_url": "https://example.com/docs/api.html",
+  "domain": "example.com",
+  "path": "/docs/api.html",
+  "anchor_url": "https://example.com/docs/api.html#auth",
+  "page_num": 42,
+  "anchor_id": "auth",
   "page_title": "API Documentation > Security > Authentication",
   "title_hierarchy": ["API Documentation", "Security", "Authentication"],
-  "lang": "en",                        // ISO language code
-  "content_type": "html",              // html|pdf|docx|markdown|txt
-  "source_type": "crawl",              // crawl|upload|api|file
-  "word_count": 127,                   // Word count for snippets
-  "tokens": 95,                        // Token count for limits
-  
-  // === TIMESTAMPS & HASHING ===
-  "published_at": "2024-01-15T10:00:00Z",  // Document publish date
-  "modified_at": "2024-03-20T14:00:00Z",   // Last modification
-  "crawl_ts": "2024-03-22T09:15:00Z",      // When DocuVec processed
-  "content_sha1": "7d865e959b2466918c9863afca942d0fb89d7c9a",  // Clean text hash
-  "original_sha1": "8b2466918c9863afca942d0fb89d7c9a7d865e95", // Raw content hash
-  "simhash": "1101011010101010",           // Near-duplicate detection
-  
-  // === QUALITY & RELEVANCE ===
-  "retrieval_weight": 1.2,             // 0.0-1.5 (boost FAQs, downweight footers)
-  "source_confidence": 0.95,           // 0.0-1.0 (trust score)
-  "is_low_signal": false,              // Low-quality content flag
-  "low_signal_reason": "",             // navigation|footer|legal|advertisement
-  "section_type": "structured",        // structured|simple|content
-  
-  // === PRIVACY & COMPLIANCE ===
-  "pii_flags": {                       // PII detection results
+  "lang": "en",
+  "content_type": "html",
+  "source_type": "crawl",
+  "word_count": 127,
+  "tokens": 95,
+  "published_at": "2024-01-15T10:00:00Z",
+  "modified_at": "2024-03-20T14:00:00Z",
+  "crawl_ts": "2024-03-22T09:15:00Z",
+  "content_sha1": "7d865e959b2466918c9863afca942d0fb89d7c9a",
+  "original_sha1": "8b2466918c9863afca942d0fb89d7c9a7d865e95",
+  "simhash": "1101011010101010",
+  "retrieval_weight": 1.2,
+  "source_confidence": 0.95,
+  "is_low_signal": false,
+  "low_signal_reason": "",
+  "section_type": "structured",
+  "pii_flags": {
     "email": false,
     "phone": false,
     "ssn": false,
@@ -63,32 +51,121 @@ Complete schema specification for DocuVec chunks:
     "address": false,
     "id_number": false
   },
-  "license": "MIT",                    // Content license
-  "attribution_required": true,        // Attribution needed
-  "noindex": false,                    // Respect robots meta
-  "nofollow": false,                   // Respect link following
-  
-  // === CONTENT FEATURES ===
-  "has_code": true,                    // Contains code blocks
-  "has_table": false,                  // Contains tables
-  "has_list": true,                    // Contains lists
-  "headings": ["Authentication", "OAuth 2.0"],  // Section headings
-  "links_out": 5,                      // Number of external links
-  
-  // === CHUNK POSITION ===
-  "chunk_index": 3,                    // Position in document (0-based)
-  "total_chunks": 15,                  // Total chunks from document
-  "chunk_char_start": 1250,            // Character offset start
-  "chunk_char_end": 2100,              // Character offset end
-  
-  // === LEGACY/OPTIONAL FIELDS ===
-  "service": ["auth"],                 // Service names (for API docs)
-  "domain_exam": "",                   // Domain/exam category
-  "certification": "",                  // Certification code
-  "provider": "technical",             // Category/provider
-  "resource_type": "document"          // document|service
+  "license": "MIT",
+  "attribution_required": true,
+  "noindex": false,
+  "nofollow": false,
+  "has_code": true,
+  "has_table": false,
+  "has_list": true,
+  "headings": ["Authentication", "OAuth 2.0"],
+  "links_out": 5,
+  "chunk_index": 3,
+  "total_chunks": 15,
+  "chunk_char_start": 1250,
+  "chunk_char_end": 2100,
+  "service": ["auth"],
+  "domain_exam": "",
+  "certification": "",
+  "provider": "technical",
+  "resource_type": "document"
 }
 ```
+
+### Field Descriptions
+
+#### Core Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique chunk identifier (format: `doc_id#index-hash`) |
+| `doc_id` | string | Stable document ID from canonical URL hash |
+| `text` | string | The actual chunk content (cleaned and processed) |
+| `embedding` | float[] | Vector embedding (1536D for small, 3072D for large) |
+
+#### Versioning & Auditability
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema_version` | string | Schema version for migrations |
+| `pipeline_version` | string | ETL pipeline version hash |
+| `embedding_model` | string | Model used for vector generation |
+| `embedding_dim` | integer | Embedding dimensions (1536 or 3072) |
+| `tokenizer` | string | Tokenizer used (e.g., `cl100k_base`) |
+
+#### URL & Navigation
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_url` | string | Original URL with fragments |
+| `canonical_url` | string | Normalized URL without fragments |
+| `domain` | string | Domain for filtering |
+| `path` | string | URL path for section filtering |
+| `anchor_url` | string | Deep link to exact location |
+| `page_num` | integer/null | PDF page number if applicable |
+| `anchor_id` | string | HTML anchor/fragment ID |
+
+#### Content Metadata
+| Field | Type | Description |
+|-------|------|-------------|
+| `page_title` | string | Full hierarchical title string |
+| `title_hierarchy` | string[] | Title components as array |
+| `lang` | string | ISO 639-1 language code |
+| `content_type` | string | Format: `html\|pdf\|docx\|markdown\|txt` |
+| `source_type` | string | Source: `crawl\|upload\|api\|file` |
+| `word_count` | integer | Word count for snippet generation |
+| `tokens` | integer | Token count for context limits |
+
+#### Timestamps & Hashing
+| Field | Type | Description |
+|-------|------|-------------|
+| `published_at` | datetime/null | Document publication date (ISO 8601) |
+| `modified_at` | datetime/null | Last modification date (ISO 8601) |
+| `crawl_ts` | datetime | When DocuVec processed (ISO 8601) |
+| `content_sha1` | string | SHA1 of cleaned text |
+| `original_sha1` | string | SHA1 of raw content before cleaning |
+| `simhash` | string | Simhash for near-duplicate detection |
+
+#### Quality & Relevance
+| Field | Type | Description |
+|-------|------|-------------|
+| `retrieval_weight` | float | 0.0-1.5 (boost FAQs, downweight footers) |
+| `source_confidence` | float | 0.0-1.0 trust score |
+| `is_low_signal` | boolean | Low-quality content flag |
+| `low_signal_reason` | string | Reason: `navigation\|footer\|legal\|ad` |
+| `section_type` | string | Type: `structured\|simple\|content` |
+
+#### Privacy & Compliance
+| Field | Type | Description |
+|-------|------|-------------|
+| `pii_flags` | object | PII detection results per type |
+| `license` | string | Content license (e.g., MIT, CC-BY) |
+| `attribution_required` | boolean | Whether attribution is needed |
+| `noindex` | boolean | Respects robots meta noindex |
+| `nofollow` | boolean | Respects robots meta nofollow |
+
+#### Content Features
+| Field | Type | Description |
+|-------|------|-------------|
+| `has_code` | boolean | Contains code blocks |
+| `has_table` | boolean | Contains tables |
+| `has_list` | boolean | Contains lists |
+| `headings` | string[] | All headings in chunk |
+| `links_out` | integer | Number of external links |
+
+#### Chunk Position
+| Field | Type | Description |
+|-------|------|-------------|
+| `chunk_index` | integer | Position in document (0-based) |
+| `total_chunks` | integer | Total chunks from document |
+| `chunk_char_start` | integer/null | Character offset start |
+| `chunk_char_end` | integer/null | Character offset end |
+
+#### Legacy/Optional Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `service` | string[] | Service names for API docs |
+| `domain_exam` | string | Domain/exam category |
+| `certification` | string | Certification code |
+| `provider` | string | Category/provider |
+| `resource_type` | string | Type: `document\|service` |
 
 ## Architecture Overview
 
