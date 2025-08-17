@@ -67,9 +67,23 @@ class DataWriter:
             "chunk_char_end": getattr(chunk, 'chunk_char_end', None),
             "tokens": getattr(chunk, 'tokens', 0),
             
+            # Content hashing for deduplication
+            "content_sha1": getattr(chunk, 'content_sha1', ''),
+            "simhash": getattr(chunk, 'simhash', ''),
+            
             # Quality and type
             "is_low_signal": chunk.is_low_signal,
+            "low_signal_reason": getattr(chunk, 'low_signal_reason', ''),
             "section_type": getattr(chunk, 'section_type', 'content'),
+            "retrieval_weight": getattr(chunk, 'retrieval_weight', 1.0),
+            "source_confidence": getattr(chunk, 'source_confidence', 1.0),
+            
+            # Content features for UI/ranking
+            "headings": getattr(chunk, 'headings', []),
+            "has_code": getattr(chunk, 'has_code', False),
+            "has_table": getattr(chunk, 'has_table', False),
+            "has_list": getattr(chunk, 'has_list', False),
+            "links_out": getattr(chunk, 'links_out', 0),
             
             # Legacy fields for backward compatibility
             "provider": chunk.provider,
