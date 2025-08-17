@@ -21,19 +21,19 @@
 
 Ever wanted to build a ChatGPT for your own documents? **DocuVec** is the missing piece that transforms ANY collection of documents (PDFs, HTML, text) into a vector database ready for Retrieval-Augmented Generation (RAG).
 
-**In simple terms:** Feed it your documents → Get back AI-ready knowledge that can answer questions about your content.
+**In simple terms:** Feed it your documents, get back AI-ready knowledge that can answer questions about your content.
 
 ## Features
 
 ### **Intelligent Processing**
 - **MIME-based routing** - Automatically detects and routes content to appropriate extractors
 - **Multi-format support** - PDF, HTML, DOCX, PPTX, XLSX, JSON, CSV, Markdown
-- **Tiered HTML extraction** - trafilatura → readability → BeautifulSoup with fallback
+- **Tiered HTML extraction** - trafilatura, then readability, then BeautifulSoup with fallback
 - **Rich metadata preservation** - Extracts title, author, dates, Open Graph, Twitter Cards, Schema.org
 - **Advanced boilerplate removal** - Strips nav, comments, ads, "related posts", cookie banners
 - **Language detection** - Auto-detects content language from HTML tags or content
 - **Advanced text cleaning** that actually works (goodbye, corrupted PDFs!)
-- **Structure-aware chunking** - Splits by headings → paragraphs → sentences, preserving document hierarchy
+- **Structure-aware chunking** - Splits by headings, paragraphs, sentences, preserving document hierarchy
 - **Hierarchical titles** - Each chunk gets context: "Page Title > Section > Subsection"
 - **Quality gates** - Automatically filters low-signal chunks (link lists, ads, short fragments)
 - **Automatic deduplication** - why embed the same content twice?
@@ -120,38 +120,135 @@ DocuVec uses intelligent MIME-type detection to automatically route content to t
 
 ```mermaid
 graph LR
-    A[📄 Your Documents] --> B[🔄 DocuVec Pipeline]
-    B --> C[🧹 Clean & Normalize]
-    C --> D[✂️ Smart Chunking]
-    D --> E[🔢 Generate Embeddings]
-    E --> F[💾 Vector Database]
-    F --> G[🤖 Your RAG App]
+    A[Your Documents] --> B[DocuVec Pipeline]
+    B --> C[Clean & Normalize]
+    C --> D[Smart Chunking]
+    D --> E[Generate Embeddings]
+    E --> F[Vector Database]
+    F --> G[Your RAG App]
 ```
 
 1. **Fetch** - Downloads and detects content type via HTTP headers
 2. **Route** - MIME-based routing to appropriate extractor
-3. **Extract** - Tiered extraction (trafilatura → readability → BeautifulSoup)
+3. **Extract** - Tiered extraction (trafilatura, readability, BeautifulSoup)
 4. **Clean** - Removes boilerplate, normalizes text, strips repeated content
 5. **Chunk** - Structure-aware splitting by headings with hierarchical context
 6. **Filter** - Quality gates remove low-signal content (ads, link lists, etc.)
 7. **Embed** - Generates vector embeddings via OpenAI
 8. **Store** - Outputs JSONL ready for any vector database with rich metadata
 
-## What You Get
+## Chunk Schema
 
+DocuVec produces comprehensive, production-ready chunks with rich metadata:
+
+### Core Fields
 ```json
 {
-  "id": "doc#00001-a3f5b2c8",
-  "text": "Your intelligently chunked content here...",
-  "embedding": [0.1234, -0.5678, ...],  // 1536 dimensions
-  "metadata": {
-    "source": "document.pdf",
-    "page": 42,
-    "category": "technical",
-    "topics": ["api", "authentication"]
-  }
+  "id": "doc_id#00001-hash",        // Unique chunk identifier
+  "doc_id": "a3f5b2c8",             // Stable document ID
+  "text": "Chunk content...",       // The actual text
+  "embedding": [0.123, -0.456, ...], // Vector (1536D or 3072D)
 }
 ```
+
+### Versioning & Auditability
+```json
+{
+  "schema_version": "2.0.0",        // Schema version for migrations
+  "pipeline_version": "abc123",     // ETL pipeline version hash
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dim": 1536,
+  "tokenizer": "cl100k_base"
+}
+```
+
+### URL & Navigation
+```json
+{
+  "source_url": "original URL",
+  "canonical_url": "normalized URL",
+  "domain": "docs.example.com",
+  "path": "/api/auth",
+  "anchor_url": "url#section",      // Deep link to exact location
+  "page_num": 42,                    // For PDFs
+  "anchor_id": "section-2.3"         // For HTML fragments
+}
+```
+
+### Content Metadata
+```json
+{
+  "page_title": "API Docs > Auth",
+  "title_hierarchy": ["API Docs", "Security", "Auth"],
+  "lang": "en",
+  "content_type": "html",            // html|pdf|docx|markdown
+  "source_type": "crawl",            // crawl|upload|api|file
+  "word_count": 127,
+  "tokens": 95
+}
+```
+
+### Timestamps & Hashing
+```json
+{
+  "published_at": "2024-01-15T10:00:00Z",
+  "modified_at": "2024-03-20T14:00:00Z",
+  "crawl_ts": "2024-03-22T09:15:00Z",
+  "content_sha1": "abc123...",      // Cleaned text hash
+  "original_sha1": "def456...",     // Raw content hash
+  "simhash": "789012..."            // Near-duplicate detection
+}
+```
+
+### Quality & Relevance
+```json
+{
+  "retrieval_weight": 1.2,           // 0.0-1.5 (boost FAQs, downweight footers)
+  "source_confidence": 0.95,         // 0.0-1.0 (trust score)
+  "is_low_signal": false,
+  "low_signal_reason": "",           // navigation|footer|legal|advertisement
+  "section_type": "structured"       // structured|simple|content
+}
+```
+
+### Privacy & Compliance
+```json
+{
+  "pii_flags": {
+    "email": false,
+    "phone": false,
+    "ssn": false,
+    "credit_card": false
+  },
+  "license": "MIT",
+  "attribution_required": true,
+  "noindex": false,
+  "nofollow": false
+}
+```
+
+### Content Features
+```json
+{
+  "has_code": true,
+  "has_table": false,
+  "has_list": true,
+  "headings": ["Introduction", "API Overview"],
+  "links_out": 5,
+  "chunk_index": 3,
+  "total_chunks": 15,
+  "chunk_char_start": 1250,
+  "chunk_char_end": 2100
+}
+```
+
+This comprehensive schema enables:
+- **Better retrieval** through weighted scoring
+- **Duplicate control** for efficient recrawling
+- **Filtering** by domain, date, language, quality
+- **Context windows** using character offsets
+- **Compliance** with privacy and licensing
+- **Auditability** of the entire pipeline
 
 ## Real-World Example
 
