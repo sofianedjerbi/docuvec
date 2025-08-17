@@ -48,6 +48,9 @@ That's it. Your documents are now AI-ready.
 
 ### 🧠 **Smart Chunking**
 - Keeps paragraphs and sections together
+- Generates stable IDs for deduplication
+- Strips YAML frontmatter and page chrome
+- Normalizes domains and tracks offsets
 - Preserves context with hierarchical titles
 - Never cuts sentences in half
 

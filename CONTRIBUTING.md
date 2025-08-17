@@ -333,13 +333,31 @@ CREATE INDEX idx_tags ON rag_chunks USING GIN (tags);
 
 ## Chunk Schema
 
-Complete schema specification for DocuVec chunks:
+Complete schema specification for DocuVec chunks with enhanced metadata and compliance fields:
 
-### Example Chunk
+### Chunk ID Format
+
+Chunks use a stable, deterministic ID format: `<doc_id>#<zero-padded_index>-<sha1_8>`
+
+Example: `ceh-cert#00000-b3869028`
+
+- **doc_id**: Stable document identifier (SHA256 hash of canonical URL)
+- **index**: Zero-padded 5-digit chunk index (00000-99999)
+- **sha1_8**: First 8 characters of content SHA1 hash
+
+This format ensures:
+- Stable IDs across re-processing
+- Efficient deduplication
+- Sortable by document and position
+- Content verification via hash
+
+### Enhanced Chunk Fields
+
+#### Core Identity
 ```json
 {
-  "id": "doc_id#00001-hash",
-  "doc_id": "a3f5b2c8",
+  "id": "doc_abc123#00001-7d865e95",
+  "doc_id": "doc_abc123",
   "text": "The actual chunk content...",
   "embedding": [0.123, -0.456],
   "schema_version": "2.0.0",
@@ -402,6 +420,49 @@ Complete schema specification for DocuVec chunks:
 }
 ```
 
+### Chunk Format Improvements
+
+The chunk format has been enhanced with the following improvements:
+
+#### 1. **Stable Chunk IDs**
+- Format: `<doc_id>#<zero-padded_index>-<sha1_8>`
+- Example: `ceh-cert#00000-b3869028`
+- Ensures consistent IDs across re-processing for deduplication
+
+#### 2. **Domain Normalization**
+- Automatically removes `www.` prefix from domains
+- `www.example.com` → `example.com`
+- Consistent domain filtering and grouping
+
+#### 3. **Content Cleaning**
+- **YAML Frontmatter Stripping**: Removes `---...---` metadata blocks
+- **Page Chrome Removal**: Strips navigation, breadcrumbs, footers
+- **Meta Pattern Cleaning**: Removes `title:`, `url:`, `author:` lines
+- Results in cleaner, more relevant chunk content
+
+#### 4. **Character Offset Tracking**
+- `char_start` and `char_end` fields track exact positions
+- Enables accurate context reconstruction
+- Supports highlight generation in source documents
+
+#### 5. **Enhanced Metadata**
+- **source_type**: Categorizes content (official_docs, academic, news, etc.)
+- **modality**: Content type (text, table, code, equation)
+- **language_confidence**: Confidence score for language detection
+- **robots_noindex/robots_nofollow**: Respects HTML meta directives
+- **doc_sha1**: Document-level hash for re-crawl detection
+
+#### 6. **Section Type Detection**
+- Automatically detects content structure
+- `"structured"`: Content with headings/sections
+- `"simple"`: Plain text without structure
+- Improves retrieval accuracy
+
+#### 7. **Content Feature Detection**
+- Detects headings, code blocks, tables, lists
+- Counts outbound links
+- Enables feature-based filtering and ranking
+
 ### Field Descriptions
 
 #### Core Fields
@@ -426,7 +487,7 @@ Complete schema specification for DocuVec chunks:
 |-------|------|-------------|
 | `source_url` | string | Original URL with fragments |
 | `canonical_url` | string | Normalized URL without fragments |
-| `domain` | string | Domain for filtering |
+| `domain` | string | Normalized domain (www. removed) |
 | `path` | string | URL path for section filtering |
 | `anchor_url` | string | Deep link to exact location |
 | `page_num` | integer/null | PDF page number if applicable |
@@ -438,8 +499,10 @@ Complete schema specification for DocuVec chunks:
 | `page_title` | string | Full hierarchical title string |
 | `title_hierarchy` | string[] | Title components as array |
 | `lang` | string | ISO 639-1 language code |
-| `content_type` | string | Format: `html\|pdf\|docx\|markdown\|txt` |
-| `source_type` | string | Source: `crawl\|upload\|api\|file` |
+| `language_confidence` | float | Confidence in language detection (0.0-1.0) |
+| `format` | string | Content format: `html\|pdf\|docx\|markdown\|txt` |
+| `modality` | string | Content type: `text\|table\|code\|equation` |
+| `source_type` | string | Source category: `official_docs\|academic\|news\|community` |
 | `word_count` | integer | Word count for snippet generation |
 | `tokens` | integer | Token count for context limits |
 
@@ -449,8 +512,8 @@ Complete schema specification for DocuVec chunks:
 | `published_at` | datetime/null | Document publication date (ISO 8601) |
 | `modified_at` | datetime/null | Last modification date (ISO 8601) |
 | `crawl_ts` | datetime | When DocuVec processed (ISO 8601) |
-| `content_sha1` | string | SHA1 of cleaned text |
-| `original_sha1` | string | SHA1 of raw content before cleaning |
+| `content_sha1` | string | SHA1 of cleaned text (40 chars) |
+| `doc_sha1` | string | SHA1 of full document (16 chars for dedup) |
 | `simhash` | string | Simhash for near-duplicate detection |
 
 #### Quality & Relevance
@@ -468,8 +531,8 @@ Complete schema specification for DocuVec chunks:
 | `pii_flags` | object | PII detection results per type |
 | `license` | string | Content license (e.g., MIT, CC-BY) |
 | `attribution_required` | boolean | Whether attribution is needed |
-| `noindex` | boolean | Respects robots meta noindex |
-| `nofollow` | boolean | Respects robots meta nofollow |
+| `robots_noindex` | boolean | Respects robots meta noindex directive |
+| `robots_nofollow` | boolean | Respects robots meta nofollow directive |
 
 #### Content Features
 | Field | Type | Description |
@@ -485,8 +548,8 @@ Complete schema specification for DocuVec chunks:
 |-------|------|-------------|
 | `chunk_index` | integer | Position in document (0-based) |
 | `total_chunks` | integer | Total chunks from document |
-| `chunk_char_start` | integer/null | Character offset start |
-| `chunk_char_end` | integer/null | Character offset end |
+| `char_start` | integer/null | Character offset start in document |
+| `char_end` | integer/null | Character offset end in document |
 
 #### Legacy/Optional Fields
 | Field | Type | Description |
