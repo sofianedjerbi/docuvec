@@ -70,6 +70,22 @@ class TextChunker:
         
         return chunks
     
+    def _detect_content_type(self, url: str) -> str:
+        """Detect content type from URL"""
+        url_lower = url.lower()
+        if url_lower.endswith('.pdf'):
+            return 'pdf'
+        elif url_lower.endswith('.docx'):
+            return 'docx'
+        elif url_lower.endswith('.doc'):
+            return 'doc'
+        elif url_lower.endswith('.md'):
+            return 'markdown'
+        elif url_lower.endswith('.txt'):
+            return 'text'
+        else:
+            return 'html'  # Default for web pages
+    
     def create_chunks(self, source: Source, content: str, use_structure: bool = True) -> List[Chunk]:
         """
         Create chunk objects from source and content
@@ -96,8 +112,11 @@ class TextChunker:
         resource_type = tags.get('type', 'document')  # Generic default
         language = tags.get('language', 'en')
         
+        # Detect actual content type from URL
+        detected_content_type = self._detect_content_type(source.url)
+        
         # Skip structure chunking for PDFs (they rarely have markdown headings)
-        is_pdf = source.url.lower().endswith('.pdf') or 'pdf' in source.url.lower()
+        is_pdf = detected_content_type == 'pdf'
         
         if use_structure and not is_pdf:
             # Try structure-aware chunking first
@@ -119,6 +138,9 @@ class TextChunker:
                         self.logger.debug(f"Skipping low-signal chunk {i} from {source.id}")
                         continue
                     
+                    # Calculate actual token count
+                    token_count = len(self.tokenizer.encode(s_chunk.text))
+                    
                     chunk = Chunk(
                         id=s_chunk.chunk_id,
                         doc_id=source.id,
@@ -129,8 +151,9 @@ class TextChunker:
                         path="/" + "/".join(source.url.split("/")[3:]) if len(source.url.split("/")) > 3 else "/",
                         page_title=s_chunk.hierarchical_title,  # Use hierarchical title
                         title_hierarchy=s_chunk.headings if hasattr(s_chunk, 'headings') else [source.title],
-                        lang="en",
-                        content_type="html",
+                        lang=language,
+                        content_type=detected_content_type,
+                        tokens=token_count,
                         service=service,
                         domain_exam=domain_exam,
                         certification=certification,
@@ -164,6 +187,9 @@ class TextChunker:
         for i, chunk_text in enumerate(text_chunks):
             chunk_id = self._generate_chunk_id(source.id, i, chunk_text)
             
+            # Calculate actual token count
+            token_count = len(self.tokenizer.encode(chunk_text))
+            
             chunk = Chunk(
                 id=chunk_id,
                 doc_id=source.id,
@@ -174,8 +200,9 @@ class TextChunker:
                 path="/" + "/".join(source.url.split("/")[3:]) if len(source.url.split("/")) > 3 else "/",
                 page_title=source.title,
                 title_hierarchy=[source.title],
-                lang="en",
-                content_type="html",
+                lang=language,
+                content_type=detected_content_type,
+                tokens=token_count,
                 service=service,
                 domain_exam=domain_exam,
                 certification=certification,
