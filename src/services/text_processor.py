@@ -26,17 +26,12 @@ class TextProcessor:
         r"^Version \d+",
     ]
     
-    # Low-signal section headers
-    LOW_SIGNAL_HEADINGS = [
-        r"^Related (documents?|videos?|examples?|services?|resources?):?$",
-        r"^Resources?$",
-        r"^References?$",
-        r"^Additional Resources?$",
-        r"^Learn More$",
-        r"^See Also$",
-        r"^External Links?$",
-        r"^Further Reading$",
-    ]
+    # Content quality thresholds
+    MIN_WORD_COUNT = 50  # Documents with fewer words are likely navigation/headers
+    MIN_UNIQUE_WORDS = 20  # Too few unique words indicates repetitive content
+    MAX_REPETITION_RATIO = 0.3  # If >30% of text is repetitions, it's low quality
+    MIN_AVG_WORD_LENGTH = 2.5  # Very short average word length indicates poor content
+    MAX_URL_DENSITY = 0.15  # If >15% of content is URLs, it's likely just links
     
     def __init__(self):
         self.logger = setup_logger(self.__class__.__name__)
@@ -130,7 +125,7 @@ class TextProcessor:
         return text
     
     def detect_low_signal_section(self, text: str) -> Tuple[str, bool, str]:
-        """Detect and optionally tag low-signal sections
+        """Detect low-signal content based on quality metrics
         
         Args:
             text: Text to analyze
@@ -138,22 +133,49 @@ class TextProcessor:
         Returns:
             Tuple of (text, is_low_signal, reason)
         """
-        # Check if text contains low-signal headings
-        for pattern in self.LOW_SIGNAL_HEADINGS:
-            match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
-            if match:
-                return text, True, f"Contains low-signal heading: '{match.group()}'"
+        if not text:
+            return text, True, "Empty content"
         
-        # Additional heuristics for low-signal content
-        # Check for excessive URLs (likely a references section)
-        url_count = len(re.findall(r"https?://", text))
-        text_length = len(text)
-        if text_length > 0 and url_count > 5 and url_count * 50 > text_length:
-            return text, True, f"Excessive URLs detected: {url_count} URLs in {text_length} chars"
+        # Calculate quality metrics
+        words = text.split()
+        word_count = len(words)
         
-        # Check for table of contents patterns
+        # 1. Check minimum word count
+        if word_count < self.MIN_WORD_COUNT:
+            return text, True, f"Too short: only {word_count} words (min: {self.MIN_WORD_COUNT})"
+        
+        # 2. Check unique word ratio
+        unique_words = len(set(word.lower() for word in words))
+        if unique_words < self.MIN_UNIQUE_WORDS:
+            return text, True, f"Too few unique words: {unique_words} (min: {self.MIN_UNIQUE_WORDS})"
+        
+        # 3. Check repetition ratio
+        repetition_ratio = 1 - (unique_words / word_count)
+        if repetition_ratio > self.MAX_REPETITION_RATIO:
+            return text, True, f"Too repetitive: {repetition_ratio:.1%} repetition"
+        
+        # 4. Check average word length (indicates substance)
+        avg_word_length = sum(len(word) for word in words) / word_count if word_count > 0 else 0
+        if avg_word_length < self.MIN_AVG_WORD_LENGTH:
+            return text, True, f"Content too simple: avg word length {avg_word_length:.1f}"
+        
+        # 5. Check URL density
+        url_count = len(re.findall(r"https?://\S+", text))
+        if word_count > 0:
+            # Count URL words (approximate)
+            url_words = url_count * 3  # URLs are typically ~3 words equivalent
+            url_density = url_words / word_count
+            if url_density > self.MAX_URL_DENSITY:
+                return text, True, f"Too many URLs: {url_density:.1%} of content is links"
+        
+        # 6. Check for table of contents patterns
         if re.search(r"(\.\s*){3,}\d+", text):  # ... page patterns
             return text, True, "Table of contents pattern detected"
+        
+        # 7. Check if it's mostly numbers/bullets (like a plain list)
+        non_alpha_ratio = len(re.findall(r'[^a-zA-Z\s]', text)) / len(text) if len(text) > 0 else 0
+        if non_alpha_ratio > 0.4:
+            return text, True, f"Too many non-alphabetic characters: {non_alpha_ratio:.1%}"
         
         return text, False, ""
     
