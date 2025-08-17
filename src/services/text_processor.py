@@ -129,34 +129,33 @@ class TextProcessor:
         
         return text
     
-    def detect_low_signal_section(self, text: str) -> Tuple[str, bool]:
+    def detect_low_signal_section(self, text: str) -> Tuple[str, bool, str]:
         """Detect and optionally tag low-signal sections
         
         Args:
             text: Text to analyze
             
         Returns:
-            Tuple of (text, is_low_signal)
+            Tuple of (text, is_low_signal, reason)
         """
         # Check if text contains low-signal headings
-        is_low_signal = any(
-            re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
-            for pattern in self.LOW_SIGNAL_HEADINGS
-        )
+        for pattern in self.LOW_SIGNAL_HEADINGS:
+            match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
+            if match:
+                return text, True, f"Contains low-signal heading: '{match.group()}'"
         
         # Additional heuristics for low-signal content
-        if not is_low_signal:
-            # Check for excessive URLs (likely a references section)
-            url_count = len(re.findall(r"https?://", text))
-            text_length = len(text)
-            if text_length > 0 and url_count > 5 and url_count * 50 > text_length:
-                is_low_signal = True
-            
-            # Check for table of contents patterns
-            if re.search(r"(\.\s*){3,}\d+", text):  # ... page patterns
-                is_low_signal = True
+        # Check for excessive URLs (likely a references section)
+        url_count = len(re.findall(r"https?://", text))
+        text_length = len(text)
+        if text_length > 0 and url_count > 5 and url_count * 50 > text_length:
+            return text, True, f"Excessive URLs detected: {url_count} URLs in {text_length} chars"
         
-        return text, is_low_signal
+        # Check for table of contents patterns
+        if re.search(r"(\.\s*){3,}\d+", text):  # ... page patterns
+            return text, True, "Table of contents pattern detected"
+        
+        return text, False, ""
     
     def clean_special_sections(self, text: str) -> str:
         """Clean special sections like code blocks and tables
@@ -258,7 +257,7 @@ class TextProcessor:
         text = self.clean_special_sections(text)
         
         # Step 5: Detect low-signal sections
-        text, is_low_signal = self.detect_low_signal_section(text)
+        text, is_low_signal, low_signal_reason = self.detect_low_signal_section(text)
         
         # Step 6: Polish sentence boundaries
         text = self.polish_sentence_boundaries(text)
@@ -266,12 +265,17 @@ class TextProcessor:
         # Step 7: Final normalization
         text = self.normalize_text(text)
         
-        # Create metadata
+        # Calculate word count
+        word_count = len(text.split()) if text else 0
+        
+        # Create detailed metadata
         metadata = {
             "is_valid": len(text.strip()) > 100,  # Minimum content threshold
             "is_low_signal": is_low_signal,
+            "low_signal_reason": low_signal_reason if is_low_signal else "",
             "content_type": content_type,
             "text_length": len(text),
+            "word_count": word_count,
             "line_count": len(text.splitlines())
         }
         
