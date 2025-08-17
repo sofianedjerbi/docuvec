@@ -37,6 +37,64 @@ class TextProcessor:
         self.logger = setup_logger(self.__class__.__name__)
         self.seen_hashes: Set[str] = set()
     
+    def fix_hyphenation_and_splits(self, text: str) -> str:
+        """Fix word splits, hyphenation, and spacing issues from PDFs and scraped content
+        
+        Args:
+            text: Text with potential hyphenation issues
+            
+        Returns:
+            Text with fixed hyphenation and word splits
+        """
+        # 1. Fix soft hyphens and line-wrap hyphenation
+        # Remove soft hyphens (invisible hyphens)
+        text = text.replace('\u00AD', '')  # Soft hyphen
+        text = text.replace('\u2027', '')  # Hyphenation point
+        
+        # 2. Fix split words across line ends (word- \nword becomes word-word or wordword)
+        # For hyphenated words at line end, join them
+        text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', text)
+        
+        # 3. Fix incorrectly spaced hyphenated words (Single Sign- On -> Single Sign-On)
+        text = re.sub(r'(\w+)-\s+(\w+)', r'\1-\2', text)
+        
+        # 4. Fix words split with spaces (for example -> forexample issue)
+        # Common patterns from PDF extraction
+        text = re.sub(r'\b(for)\s+(example)\b', r'for example', text, flags=re.IGNORECASE)
+        text = re.sub(r'\b(how)\s+(ever)\b', r'however', text, flags=re.IGNORECASE)
+        text = re.sub(r'\b(there)\s+(fore)\b', r'therefore', text, flags=re.IGNORECASE)
+        text = re.sub(r'\b(with)\s+(out)\b', r'without', text, flags=re.IGNORECASE)
+        
+        # 5. Normalize bullet points and list markers
+        # Convert various bullet characters to standard dash
+        bullets = ['•', '●', '○', '◦', '▪', '▫', '■', '□', '▸', '▹', '►', '▻', '‣', '⁃']
+        for bullet in bullets:
+            text = text.replace(bullet, '-')
+        
+        # 6. Normalize dashes and punctuation
+        # Em dash, en dash, figure dash, horizontal bar -> standard dash
+        text = text.replace('—', ' - ')  # Em dash
+        text = text.replace('–', ' - ')  # En dash  
+        text = text.replace('‒', '-')    # Figure dash
+        text = text.replace('―', ' - ')  # Horizontal bar
+        text = text.replace('⸺', ' - ')  # Two-em dash
+        text = text.replace('⸻', ' - ')  # Three-em dash
+        
+        # 7. Fix spacing around punctuation
+        # Remove space before punctuation
+        text = re.sub(r'\s+([.,;:!?])', r'\1', text)
+        # Add space after punctuation if missing (except for decimals)
+        text = re.sub(r'([.,;:!?])(?=[A-Za-z])', r'\1 ', text)
+        # But don't add space after decimal points
+        text = re.sub(r'(\d+)\.\s+(\d+)', r'\1.\2', text)
+        
+        # 8. Collapse multiple spaces (but preserve paragraph breaks)
+        text = re.sub(r'[ \t]+', ' ', text)
+        text = re.sub(r' +\n', '\n', text)  # Remove trailing spaces
+        text = re.sub(r'\n +', '\n', text)  # Remove leading spaces after newline
+        
+        return text
+    
     def normalize_text(self, text: str) -> str:
         """Normalize unicode and whitespace
         
@@ -281,26 +339,29 @@ class TextProcessor:
         if not text:
             return "", {"is_valid": False}
         
-        # Step 1: Normalize unicode and whitespace
+        # Step 1: Fix hyphenation and word splits (especially from PDFs)
+        text = self.fix_hyphenation_and_splits(text)
+        
+        # Step 2: Normalize unicode and whitespace
         text = self.normalize_text(text)
         
-        # Step 2: Strip headers/footers (especially for PDFs)
+        # Step 3: Strip headers/footers (especially for PDFs)
         if content_type == "pdf":
             text = self.strip_headers_footers(text)
         
-        # Step 3: Normalize bullets and lists
+        # Step 4: Normalize bullets and lists
         text = self.normalize_bullets(text)
         
-        # Step 4: Clean special sections
+        # Step 5: Clean special sections
         text = self.clean_special_sections(text)
         
-        # Step 5: Detect low-signal sections
+        # Step 6: Detect low-signal sections
         text, is_low_signal, low_signal_reason = self.detect_low_signal_section(text)
         
-        # Step 6: Polish sentence boundaries
+        # Step 7: Polish sentence boundaries
         text = self.polish_sentence_boundaries(text)
         
-        # Step 7: Final normalization
+        # Step 8: Final normalization
         text = self.normalize_text(text)
         
         # Calculate word count
