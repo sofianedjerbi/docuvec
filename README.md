@@ -33,7 +33,9 @@ Ever wanted to build a ChatGPT for your own documents? **DocuVec** is the missin
 - **Advanced boilerplate removal** - Strips nav, comments, ads, "related posts", cookie banners
 - **Language detection** - Auto-detects content language from HTML tags or content
 - **Advanced text cleaning** that actually works (goodbye, corrupted PDFs!)
-- **Smart chunking** with semantic boundaries - no more sentences cut in half
+- **Structure-aware chunking** - Splits by headings → paragraphs → sentences, preserving document hierarchy
+- **Hierarchical titles** - Each chunk gets context: "Page Title > Section > Subsection"
+- **Quality gates** - Automatically filters low-signal chunks (link lists, ads, short fragments)
 - **Automatic deduplication** - why embed the same content twice?
 - **Low-signal detection** - filters out references, footers, and noise
 - **OCR support** (optional) - Extract text from images and scanned PDFs
@@ -130,9 +132,10 @@ graph LR
 2. **Route** - MIME-based routing to appropriate extractor
 3. **Extract** - Tiered extraction (trafilatura → readability → BeautifulSoup)
 4. **Clean** - Removes boilerplate, normalizes text, strips repeated content
-5. **Chunk** - Intelligently splits into semantic segments (not just random 1000 chars!)
-6. **Embed** - Generates vector embeddings via OpenAI
-7. **Store** - Outputs JSONL ready for any vector database with rich metadata
+5. **Chunk** - Structure-aware splitting by headings with hierarchical context
+6. **Filter** - Quality gates remove low-signal content (ads, link lists, etc.)
+7. **Embed** - Generates vector embeddings via OpenAI
+8. **Store** - Outputs JSONL ready for any vector database with rich metadata
 
 ## What You Get
 

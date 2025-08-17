@@ -1,13 +1,14 @@
 """Text chunking service using token-based splitting"""
 
 import hashlib
-from typing import List
+from typing import List, Optional, Dict, Any
 
 import tiktoken
 
 from src.models import Source, Chunk
 from src.core.logger import setup_logger
 from src.services.text_processor import TextProcessor
+from src.services.structure_chunker import StructureChunker, StructuredChunk
 
 
 class TextChunker:
@@ -20,6 +21,11 @@ class TextChunker:
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
         self.logger = setup_logger(self.__class__.__name__)
         self.text_processor = TextProcessor()
+        self.structure_chunker = StructureChunker(
+            max_tokens=max_tokens,
+            overlap_tokens=overlap_tokens,
+            min_tokens=min_tokens
+        )
     
     def _generate_chunk_id(self, source_id: str, chunk_index: int, chunk_text: str) -> str:
         """Generate stable chunk ID with content hash"""
@@ -64,20 +70,17 @@ class TextChunker:
         
         return chunks
     
-    def create_chunks(self, source: Source, content: str) -> List[Chunk]:
-        """Create chunk objects from source and content"""
+    def create_chunks(self, source: Source, content: str, use_structure: bool = True) -> List[Chunk]:
+        """
+        Create chunk objects from source and content
+        
+        Args:
+            source: Source object with metadata
+            content: Text content to chunk
+            use_structure: Whether to use structure-aware chunking
+        """
         if not content:
             return []
-        
-        # Split into text chunks
-        text_chunks = self.chunk_text(content)
-        
-        if not text_chunks:
-            self.logger.warning(f"No valid chunks created for {source.id}")
-            return []
-        
-        # Deduplicate chunks
-        text_chunks = self.text_processor.deduplicate_chunks(text_chunks)
         
         chunks = []
         tags = source.tags
@@ -90,7 +93,62 @@ class TextChunker:
         domain_exam = tags.get('domain_exam', '')
         certification = tags.get('certification', '')
         provider = tags.get('provider', 'AWS')
-        resource_type = tags.get('type', 'cert')  # Explicit type from sources.yaml
+        resource_type = tags.get('type', 'cert')
+        language = tags.get('language', 'en')
+        
+        if use_structure:
+            # Try structure-aware chunking first
+            try:
+                structured_chunks = self.structure_chunker.chunk_text(
+                    content,
+                    page_title=source.title,
+                    page_language=language,
+                    metadata={
+                        'source_id': source.id,
+                        'url': source.url
+                    }
+                )
+                
+                # Convert structured chunks to Chunk objects
+                for i, s_chunk in enumerate(structured_chunks):
+                    # Skip low-signal chunks if configured
+                    if s_chunk.is_low_signal:
+                        self.logger.debug(f"Skipping low-signal chunk {i} from {source.id}")
+                        continue
+                    
+                    chunk = Chunk(
+                        id=s_chunk.chunk_id,
+                        text=s_chunk.text,
+                        source_url=source.url,
+                        page_title=s_chunk.hierarchical_title,  # Use hierarchical title
+                        service=service,
+                        domain_exam=domain_exam,
+                        certification=certification,
+                        provider=provider,
+                        resource_type=resource_type,
+                        chunk_index=s_chunk.chunk_index,
+                        total_chunks=s_chunk.total_chunks,
+                        is_low_signal=s_chunk.is_low_signal,
+                        section_type="structured"  # Mark as structure-aware
+                    )
+                    chunks.append(chunk)
+                
+                if chunks:
+                    self.logger.info(f"Created {len(chunks)} structure-aware chunks for {source.id}")
+                    return chunks
+                
+            except Exception as e:
+                self.logger.warning(f"Structure chunking failed for {source.id}, falling back: {e}")
+        
+        # Fallback to simple token-based chunking
+        text_chunks = self.chunk_text(content)
+        
+        if not text_chunks:
+            self.logger.warning(f"No valid chunks created for {source.id}")
+            return []
+        
+        # Deduplicate chunks
+        text_chunks = self.text_processor.deduplicate_chunks(text_chunks)
         
         # Create chunk objects
         for i, chunk_text in enumerate(text_chunks):
@@ -107,10 +165,11 @@ class TextChunker:
                 provider=provider,
                 resource_type=resource_type,
                 chunk_index=i,
-                total_chunks=len(text_chunks)
+                total_chunks=len(text_chunks),
+                section_type="simple"  # Mark as simple chunking
             )
             
             chunks.append(chunk)
         
-        self.logger.info(f"Created {len(chunks)} chunks for {source.id}")
+        self.logger.info(f"Created {len(chunks)} simple chunks for {source.id}")
         return chunks
