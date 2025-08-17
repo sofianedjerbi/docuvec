@@ -102,17 +102,19 @@ class TextChunker:
             return []
         
         chunks = []
-        tags = source.tags
+        tags = source.tags if source.tags else {}
         
-        # Extract metadata
-        service = tags.get('service', [])
-        if isinstance(service, str):
-            service = [service]
+        # Extract generic metadata
+        category = tags.get('category', 'general')
+        subcategory = tags.get('subcategory', '')
+        tag_list = tags.get('tags', [])
+        if isinstance(tag_list, str):
+            tag_list = [tag_list]
         
-        domain_exam = tags.get('domain_exam', '')
-        certification = tags.get('certification', '')
-        provider = tags.get('provider', '')  # No default provider
-        resource_type = tags.get('type', 'document')  # Generic default
+        # Custom metadata - pass through any additional fields
+        custom_metadata = {k: v for k, v in tags.items() 
+                          if k not in ['category', 'subcategory', 'tags', 'language']}
+        
         language = tags.get('language', 'en')
         
         # Detect actual content type from URL
@@ -164,11 +166,10 @@ class TextChunker:
                         content_sha1=content_sha1,
                         simhash=simhash,
                         crawl_ts=datetime.now(),
-                        service=service,
-                        domain_exam=domain_exam,
-                        certification=certification,
-                        provider=provider,
-                        resource_type=resource_type,
+                        category=category,
+                        subcategory=subcategory,
+                        tags=tag_list,
+                        metadata=custom_metadata,
                         chunk_index=s_chunk.chunk_index,
                         total_chunks=s_chunk.total_chunks,
                         is_low_signal=s_chunk.is_low_signal,
@@ -220,11 +221,10 @@ class TextChunker:
                 content_sha1=content_sha1,
                 simhash=simhash,
                 crawl_ts=datetime.now(),
-                service=service,
-                domain_exam=domain_exam,
-                certification=certification,
-                provider=provider,
-                resource_type=resource_type,
+                category=category,
+                subcategory=subcategory,
+                tags=tag_list,
+                metadata=custom_metadata,
                 chunk_index=i,
                 total_chunks=len(text_chunks),
                 section_type="simple"  # Mark as simple chunking

@@ -57,12 +57,11 @@ class Chunk:
     noindex: bool = False            # Respect robots meta
     nofollow: bool = False           # Respect link following rules
     
-    # Legacy/optional fields (for backward compatibility)
-    service: List[str] = field(default_factory=list)
-    domain_exam: str = ""
-    certification: str = ""
-    provider: str = ""               # Category/provider
-    resource_type: str = "document"  # "document" | "service"
+    # Generic metadata (customizable per use case)
+    category: str = "general"        # Document category (e.g., "technical", "medical", "legal")
+    subcategory: str = ""            # Optional subcategory
+    tags: List[str] = field(default_factory=list)  # Flexible tagging system
+    metadata: dict = field(default_factory=dict)   # Additional custom metadata
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
@@ -119,10 +118,9 @@ class Chunk:
             "noindex": self.noindex,
             "nofollow": self.nofollow,
             
-            # Legacy fields
-            "service": self.service,
-            "domain_exam": self.domain_exam,
-            "certification": self.certification,
-            "provider": self.provider,
-            "resource_type": self.resource_type,
+            # Generic metadata
+            "category": self.category,
+            "subcategory": self.subcategory,
+            "tags": self.tags,
+            "metadata": self.metadata,
         }

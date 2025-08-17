@@ -85,12 +85,11 @@ class DataWriter:
             "has_list": getattr(chunk, 'has_list', False),
             "links_out": getattr(chunk, 'links_out', 0),
             
-            # Legacy fields for backward compatibility
-            "provider": chunk.provider,
-            "resource_type": chunk.resource_type,
-            "service": getattr(chunk, 'service', []),
-            "domain_exam": getattr(chunk, 'domain_exam', ''),
-            "certification": getattr(chunk, 'certification', ''),
+            # Generic metadata
+            "category": chunk.category,
+            "subcategory": chunk.subcategory,
+            "tags": chunk.tags,
+            "metadata": chunk.metadata,
             
             # Timestamps (convert to ISO format for JSON serialization)
             "crawl_ts": self._serialize_datetime(getattr(chunk, 'crawl_ts', None)),
@@ -106,36 +105,35 @@ class DataWriter:
         }
 
     def _classify_chunk(self, chunk: Chunk) -> Tuple[str, str]:
-        """Get chunk type and identifier from explicit metadata
+        """Get chunk category and identifier from metadata
         
         Returns:
-            Tuple of (type, identifier) where:
-            - type is the resource type from metadata
+            Tuple of (category, identifier) where:
+            - category is the document category
             - identifier is the source ID (doc_id) to ensure one file per source
         """
-        # Get resource type, default to 'document'
-        resource_type = chunk.resource_type or 'document'
+        # Get category, default to 'general'
+        category = chunk.category or 'general'
         
         # Use doc_id as identifier to ensure one file per source
         identifier = chunk.doc_id if chunk.doc_id else 'unknown'
         
-        return resource_type, identifier
+        return category, identifier
     
     def _organize_chunks_by_type(self, chunks: List[Chunk]) -> Dict[str, Dict[str, List[Chunk]]]:
-        """Organize chunks by category and type
+        """Organize chunks by category and document
         
         Returns:
-            Nested dict: {category: {type_identifier: [chunks]}}
+            Nested dict: {category: {doc_id: [chunks]}}
         """
         organized = defaultdict(lambda: defaultdict(list))
         
         for chunk in chunks:
-            # Use provider as category, or 'general' if not specified
-            category = chunk.provider.lower() if chunk.provider else 'general'
-            resource_type, identifier = self._classify_chunk(chunk)
+            # Use category from chunk
+            category = chunk.category.lower() if chunk.category else 'general'
             
-            # Use identifier (doc_id) as key for grouping
-            key = identifier
+            # Use doc_id as key for grouping
+            key = chunk.doc_id if chunk.doc_id else 'unknown'
             
             organized[category][key].append(chunk)
         
@@ -154,10 +152,10 @@ class DataWriter:
         if not chunks:
             return {"chunks_file": None, "embeds_file": None}
         
-        # Get provider and resource type from first chunk
+        # Get category from first chunk
         sample_chunk = chunks[0]
-        category = sample_chunk.provider.lower() if sample_chunk.provider else 'general'
-        resource_type = sample_chunk.resource_type or 'document'
+        category = sample_chunk.category.lower() if sample_chunk.category else 'general'
+        subcategory = sample_chunk.subcategory or 'documents'
         
         # Use source ID as filename
         filename = f"{source.id}.jsonl"
@@ -177,12 +175,12 @@ class DataWriter:
                 embed_records.append(embed_record)
         
         # Write files
-        chunks_file = self.chunks_dir / category / resource_type / filename
+        chunks_file = self.chunks_dir / category / subcategory / filename
         self._write_jsonl(chunks_file, chunk_records)
         
         embeds_file = None
         if embed_records:
-            embeds_file = self.embeds_dir / category / resource_type / filename
+            embeds_file = self.embeds_dir / category / subcategory / filename
             self._write_jsonl(embeds_file, embed_records)
         
         self.logger.info(f"  Wrote {len(chunk_records)} chunks to {chunks_file}")
@@ -228,17 +226,16 @@ class DataWriter:
                     if hasattr(chunk, 'to_dict'):
                         chunk_record = chunk.to_dict()
                     else:
-                        # Backward compatibility for old Chunk model
+                        # Generic chunk record
                         chunk_record = {
                             "id": chunk.id,
                             "text": chunk.text,
                             "source_url": chunk.source_url,
                             "page_title": chunk.page_title,
-                            "service": chunk.service,
-                            "domain_exam": chunk.domain_exam,
-                            "certification": chunk.certification,
-                            "provider": chunk.provider,
-                            "resource_type": chunk.resource_type,
+                            "category": chunk.category,
+                            "subcategory": chunk.subcategory,
+                            "tags": chunk.tags,
+                            "metadata": chunk.metadata,
                             "chunk_index": chunk.chunk_index,
                             "total_chunks": chunk.total_chunks,
                             "is_low_signal": chunk.is_low_signal,
@@ -254,9 +251,9 @@ class DataWriter:
                         }
                         embed_records.append(embed_record)
                 
-                # Use doc_id as filename and resource_type as subdirectory
+                # Use doc_id as filename and subcategory as subdirectory
                 filename = f"{key}.jsonl"
-                subdir = type_chunks[0].resource_type if type_chunks and type_chunks[0].resource_type else 'document'
+                subdir = type_chunks[0].subcategory if type_chunks and type_chunks[0].subcategory else 'documents'
                 
                 # Write chunk file
                 chunks_file = self.chunks_dir / category_dir / subdir / filename
@@ -284,9 +281,9 @@ class DataWriter:
             'organization': {},
             'files_written': files_written,
             'statistics': {
-                'certifications': {},
-                'services': {},
-                'providers': {},
+                'categories': {},
+                'subcategories': {},
+                'tags': {},
                 'section_types': {},
                 'low_signal_count': 0
             }
@@ -296,7 +293,6 @@ class DataWriter:
         for category, type_groups in organized.items():
             summary['organization'][category] = {
                 'documents': [],
-                'services': [],
                 'total_chunks': 0
             }
             
@@ -304,38 +300,29 @@ class DataWriter:
                 chunk_count = len(type_chunks)
                 summary['organization'][category]['total_chunks'] += chunk_count
                 
-                if key.startswith('service_'):
-                    service_name = key.replace('service_', '')
-                    summary['organization'][category]['services'].append({
-                        'name': service_name,
-                        'chunks': chunk_count,
-                        'file': f"{category}/service/{service_name}.jsonl"
-                    })
-                else:
-                    summary['organization'][category]['documents'].append({
-                        'id': key,
-                        'chunks': chunk_count,
-                        'file': f"{category}/{type_chunks[0].resource_type if type_chunks else 'documents'}/{key}.jsonl"
-                    })
+                summary['organization'][category]['documents'].append({
+                    'id': key,
+                    'chunks': chunk_count,
+                    'file': f"{category}/{type_chunks[0].subcategory if type_chunks and type_chunks[0].subcategory else 'documents'}/{key}.jsonl"
+                })
         
         # Gather statistics
         for chunk in chunks:
-            # Provider stats
-            provider = chunk.provider
-            summary['statistics']['providers'][provider] = \
-                summary['statistics']['providers'].get(provider, 0) + 1
+            # Category stats
+            category = chunk.category
+            summary['statistics']['categories'][category] = \
+                summary['statistics']['categories'].get(category, 0) + 1
             
-            # Certification stats
-            cert = chunk.certification
-            if cert:
-                summary['statistics']['certifications'][cert] = \
-                    summary['statistics']['certifications'].get(cert, 0) + 1
+            # Subcategory stats
+            if chunk.subcategory:
+                summary['statistics']['subcategories'][chunk.subcategory] = \
+                    summary['statistics']['subcategories'].get(chunk.subcategory, 0) + 1
             
-            # Service stats
-            for service in chunk.service:
-                if service:
-                    summary['statistics']['services'][service] = \
-                        summary['statistics']['services'].get(service, 0) + 1
+            # Tag stats
+            for tag in chunk.tags:
+                if tag:
+                    summary['statistics']['tags'][tag] = \
+                        summary['statistics']['tags'].get(tag, 0) + 1
             
             # Section type stats
             section = chunk.section_type

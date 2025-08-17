@@ -2,7 +2,7 @@
 
 **Transform any document into AI-ready knowledge in minutes.**
 
-DocuVec is the missing piece between your documents and ChatGPT-like systems. Feed it PDFs, websites, or any text - get back perfect chunks ready for AI search.
+DocuVec is a universal document processing pipeline that transforms any content - technical docs, medical records, legal documents, research papers, or any text - into AI-ready chunks for RAG systems.
 
 ## Why DocuVec?
 

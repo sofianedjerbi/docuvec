@@ -1,0 +1,153 @@
+# DocuVec Generic Sources Example
+# This shows how DocuVec can handle ANY type of content - not just certifications
+# The system is flexible and can be used for any domain
+
+# Technical Documentation Example
+- id: "python-official-docs"
+  url: "https://docs.python.org/3/"
+  title: "Python 3 Documentation"
+  tags:
+    category: "technical"
+    subcategory: "programming"
+    tags: ["python", "programming", "reference"]
+    language: "en"
+    # Any custom metadata can be added here
+    version: "3.12"
+    documentation_type: "official"
+
+# Medical/Healthcare Example
+- id: "cdc-covid-guidelines"
+  url: "https://www.cdc.gov/coronavirus/2019-ncov/index.html"
+  title: "CDC COVID-19 Guidelines"
+  tags:
+    category: "medical"
+    subcategory: "public_health"
+    tags: ["covid-19", "guidelines", "healthcare"]
+    language: "en"
+    organization: "CDC"
+    last_updated: "2025"
+
+# Legal Documentation Example
+- id: "gdpr-regulation"
+  url: "https://gdpr-info.eu/"
+  title: "General Data Protection Regulation (GDPR)"
+  tags:
+    category: "legal"
+    subcategory: "privacy"
+    tags: ["gdpr", "privacy", "regulation", "eu"]
+    language: "en"
+    jurisdiction: "EU"
+    effective_date: "2018-05-25"
+
+# Academic/Research Example
+- id: "arxiv-transformers-paper"
+  url: "https://arxiv.org/abs/1706.03762"
+  title: "Attention Is All You Need"
+  tags:
+    category: "research"
+    subcategory: "machine_learning"
+    tags: ["transformers", "nlp", "deep_learning"]
+    language: "en"
+    authors: ["Vaswani et al."]
+    year: 2017
+
+# Mathematics Example
+- id: "khan-academy-calculus"
+  url: "https://www.khanacademy.org/math/calculus-1"
+  title: "Calculus 1 - Khan Academy"
+  tags:
+    category: "education"
+    subcategory: "mathematics"
+    tags: ["calculus", "math", "education"]
+    language: "en"
+    level: "undergraduate"
+    format: "video_course"
+
+# Infrastructure/DevOps Example
+- id: "kubernetes-docs"
+  url: "https://kubernetes.io/docs/"
+  title: "Kubernetes Documentation"
+  tags:
+    category: "infrastructure"
+    subcategory: "container_orchestration"
+    tags: ["kubernetes", "containers", "devops"]
+    language: "en"
+    version: "1.29"
+
+# Business/Finance Example
+- id: "sec-10k-filings"
+  url: "https://www.sec.gov/edgar/browse/?CIK=320193"
+  title: "Apple Inc. SEC Filings"
+  tags:
+    category: "finance"
+    subcategory: "financial_reports"
+    tags: ["10-K", "financial", "apple", "sec"]
+    language: "en"
+    company: "Apple Inc."
+    filing_type: "10-K"
+
+# Philosophy/Literature Example
+- id: "stanford-philosophy-consciousness"
+  url: "https://plato.stanford.edu/entries/consciousness/"
+  title: "Stanford Encyclopedia - Consciousness"
+  tags:
+    category: "philosophy"
+    subcategory: "mind"
+    tags: ["consciousness", "philosophy", "cognition"]
+    language: "en"
+    source: "Stanford Encyclopedia of Philosophy"
+
+# Product Documentation Example
+- id: "stripe-api-docs"
+  url: "https://stripe.com/docs/api"
+  title: "Stripe API Documentation"
+  tags:
+    category: "api_documentation"
+    subcategory: "payments"
+    tags: ["stripe", "payments", "api", "fintech"]
+    language: "en"
+    api_version: "2023-10-16"
+
+# News/Media Example
+- id: "bbc-technology-news"
+  url: "https://www.bbc.com/news/technology"
+  title: "BBC Technology News"
+  tags:
+    category: "news"
+    subcategory: "technology"
+    tags: ["news", "technology", "current_events"]
+    language: "en"
+    publication: "BBC"
+    content_type: "news_articles"
+
+# Recipe/Cooking Example
+- id: "serious-eats-techniques"
+  url: "https://www.seriouseats.com/cooking-techniques-5117878"
+  title: "Serious Eats - Cooking Techniques"
+  tags:
+    category: "culinary"
+    subcategory: "techniques"
+    tags: ["cooking", "recipes", "techniques"]
+    language: "en"
+    cuisine_type: "general"
+
+# Environmental/Climate Example
+- id: "ipcc-climate-report"
+  url: "https://www.ipcc.ch/report/ar6/wg1/"
+  title: "IPCC Climate Change Report 2021"
+  tags:
+    category: "environmental"
+    subcategory: "climate_science"
+    tags: ["climate", "ipcc", "research", "environment"]
+    language: "en"
+    report_type: "assessment"
+    year: 2021
+
+# The metadata structure is completely flexible!
+# You can add ANY fields that make sense for your use case:
+# - For medical: symptoms, treatments, drug_interactions
+# - For legal: case_law, statutes, jurisdictions
+# - For recipes: ingredients, cooking_time, difficulty
+# - For academic: citations, peer_reviewed, journal
+# - For products: pricing, features, compatibility
+# etc.
