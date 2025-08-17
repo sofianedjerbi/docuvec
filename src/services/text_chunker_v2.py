@@ -140,7 +140,7 @@ class TextChunkerV2:
                         page_title=s_chunk.hierarchical_title,
                         title_hierarchy=s_chunk.headings[:3],  # Limit to 3 levels
                         lang=language,
-                        format=content_type,  # Map old field name to new
+                        format=content_type,
                         
                         # Timestamps
                         published_at=published_at,
