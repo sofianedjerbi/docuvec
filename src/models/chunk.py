@@ -9,23 +9,20 @@ from datetime import datetime
 class Chunk:
     """Enhanced data class for document chunk with comprehensive metadata"""
     
-    # Core fields
+    # Required fields
     id: str                          # Unique chunk identifier
     doc_id: str                      # Stable document ID (canonical URL hash)
     text: str                        # Chunk text content
-    embedding: Optional[List[float]] = field(default=None)
-    
-    # URL components
     source_url: str                  # Original URL
     canonical_url: str               # Normalized canonical URL
     domain: str                      # Domain (e.g., "docs.example.com")
     path: str                        # URL path (e.g., "/api/auth")
-    
-    # Content metadata
     page_title: str                  # Full hierarchical title string
     title_hierarchy: List[str]      # ["Page Title", "Section", "Subsection"]
     lang: str                        # ISO language code (e.g., "en", "fr")
     content_type: str                # "html" | "pdf" | "docx" | "markdown" | "txt"
+    chunk_index: int                 # Position in document
+    total_chunks: int                # Total chunks from document
     
     # Timestamps
     published_at: Optional[datetime] = None  # Document publish date
@@ -36,9 +33,8 @@ class Chunk:
     content_sha1: str = ""           # SHA1 hash of text for exact duplicate detection
     simhash: str = ""                # Simhash for near-duplicate detection
     
-    # Chunk metadata
-    chunk_index: int                 # Position in document
-    total_chunks: int                # Total chunks from document
+    # Optional fields
+    embedding: Optional[List[float]] = field(default=None)  # Vector embedding
     chunk_char_start: Optional[int] = None  # Character offset start
     chunk_char_end: Optional[int] = None    # Character offset end
     tokens: int = 0                  # Token count for this chunk
