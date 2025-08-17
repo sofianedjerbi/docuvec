@@ -43,6 +43,9 @@ class Config:
         # Network settings
         self.max_retries = int(os.getenv("MAX_RETRIES", "4"))
         self.timeout = int(os.getenv("TIMEOUT", "30"))
+        
+        # Content extraction settings
+        self.enable_ocr = os.getenv("ENABLE_OCR", "false").lower() == "true"
     
     def _create_directories(self):
         """Create necessary directories"""

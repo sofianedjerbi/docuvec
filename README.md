@@ -26,11 +26,17 @@ Ever wanted to build a ChatGPT for your own documents? **DocuVec** is the missin
 ## Features
 
 ### **Intelligent Processing**
-- **Battle-tested extraction** using trafilatura - automatically removes nav/ads/footers
+- **MIME-based routing** - Automatically detects and routes content to appropriate extractors
+- **Multi-format support** - PDF, HTML, DOCX, PPTX, XLSX, JSON, CSV, Markdown
+- **Tiered HTML extraction** - trafilatura → readability → BeautifulSoup with fallback
+- **Rich metadata preservation** - Extracts title, author, dates, Open Graph, Twitter Cards, Schema.org
+- **Advanced boilerplate removal** - Strips nav, comments, ads, "related posts", cookie banners
+- **Language detection** - Auto-detects content language from HTML tags or content
 - **Advanced text cleaning** that actually works (goodbye, corrupted PDFs!)
 - **Smart chunking** with semantic boundaries - no more sentences cut in half
 - **Automatic deduplication** - why embed the same content twice?
 - **Low-signal detection** - filters out references, footers, and noise
+- **OCR support** (optional) - Extract text from images and scanned PDFs
 
 ### **Production Ready**
 - **Batched embeddings** - 10x faster than individual API calls
@@ -91,6 +97,23 @@ python main.py
 - 💼 **Company Knowledge** - "What's our policy on remote work?"
 - 🔬 **Research Papers** - "What methods did Smith et al. use?"
 
+## Supported Formats
+
+DocuVec uses intelligent MIME-type detection to automatically route content to the appropriate extractor:
+
+| Format | MIME Type | Extraction Method | OCR Support |
+|--------|-----------|-------------------|-------------|
+| **PDF** | `application/pdf` | PyPDF/PDFPlumber | ✅ Optional |
+| **HTML** | `text/html` | Trafilatura | - |
+| **Word** | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | python-docx/mammoth | - |
+| **PowerPoint** | `application/vnd.openxmlformats-officedocument.presentationml.presentation` | python-pptx | - |
+| **Excel** | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | openpyxl/pandas | - |
+| **JSON** | `application/json` | Native parser | - |
+| **CSV** | `text/csv` | pandas | - |
+| **Markdown** | `text/markdown` | Direct extraction | - |
+| **Images** | `image/*` | - | ✅ Tesseract |
+| **Plain Text** | `text/plain` | Direct extraction | - |
+
 ## How It Works
 
 ```mermaid
@@ -103,11 +126,13 @@ graph LR
     F --> G[🤖 Your RAG App]
 ```
 
-1. **Fetch** - Downloads and extracts text from any source
-2. **Clean** - Removes headers, fixes encoding, normalizes formatting
-3. **Chunk** - Intelligently splits into semantic segments (not just random 1000 chars!)
-4. **Embed** - Generates vector embeddings via OpenAI
-5. **Store** - Outputs JSONL ready for any vector database
+1. **Fetch** - Downloads and detects content type via HTTP headers
+2. **Route** - MIME-based routing to appropriate extractor
+3. **Extract** - Tiered extraction (trafilatura → readability → BeautifulSoup)
+4. **Clean** - Removes boilerplate, normalizes text, strips repeated content
+5. **Chunk** - Intelligently splits into semantic segments (not just random 1000 chars!)
+6. **Embed** - Generates vector embeddings via OpenAI
+7. **Store** - Outputs JSONL ready for any vector database with rich metadata
 
 ## What You Get
 
@@ -159,6 +184,7 @@ MAX_TOKENS=700          # Chunk size
 OVERLAP_TOKENS=80       # Semantic overlap
 EMBED_MODEL=text-embedding-3-small
 EMBED_BATCH=64          # Batch size
+ENABLE_OCR=false        # Enable OCR for images/scanned PDFs
 ```
 </details>
 

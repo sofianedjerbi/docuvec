@@ -34,7 +34,8 @@ class ETLOrchestrator:
             cache_file=self.config.cache_file,
             request_delay=self.config.request_delay,
             max_retries=self.config.max_retries,
-            timeout=self.config.timeout
+            timeout=self.config.timeout,
+            enable_ocr=self.config.enable_ocr
         )
         self.text_chunker = TextChunker(
             max_tokens=self.config.max_tokens,

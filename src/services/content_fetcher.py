@@ -4,6 +4,7 @@ import io
 import time
 import json
 import hashlib
+import requests
 from typing import Optional, Dict, Any
 from pathlib import Path
 
@@ -13,20 +14,25 @@ from pypdf import PdfReader
 from src.models import Source
 from src.core.logger import setup_logger
 from src.services.text_processor import TextProcessor
+from src.services.mime_router import MimeRouter
+from src.services.content_extractors import ContentExtractors
 
 
 class ContentFetcher:
     """Service for fetching and intelligently extracting content from URLs"""
     
     def __init__(self, cache_file: Path, request_delay: float = 1.0, 
-                 max_retries: int = 4, timeout: int = 30):
+                 max_retries: int = 4, timeout: int = 30, enable_ocr: bool = False):
         self.cache_file = cache_file
         self.request_delay = request_delay
         self.max_retries = max_retries
         self.timeout = timeout
+        self.enable_ocr = enable_ocr
         self.logger = setup_logger(self.__class__.__name__)
         self.cache = self._load_cache()
         self.text_processor = TextProcessor()
+        self.mime_router = MimeRouter(enable_ocr=enable_ocr)
+        self.extractors = ContentExtractors(enable_ocr=enable_ocr)
     
     def _load_cache(self) -> Dict[str, Any]:
         """Load existing cache if available"""
@@ -54,14 +60,16 @@ class ContentFetcher:
     def _extract_pdf_text(self, url: str) -> Optional[str]:
         """Extract text from PDF using direct download"""
         try:
-            # Download PDF content using trafilatura's fetch (handles retries)
-            downloaded = trafilatura.fetch_url(url, no_ssl=True, decode=False)
-            if not downloaded:
-                self.logger.error(f"Failed to download PDF: {url}")
-                return None
+            # Download PDF content using requests for binary data
+            import requests
+            
+            response = requests.get(url, timeout=30, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
             
             # Extract text using pypdf
-            reader = PdfReader(io.BytesIO(downloaded))
+            reader = PdfReader(io.BytesIO(response.content))
             pages = []
             
             for page in reader.pages:
@@ -73,7 +81,7 @@ class ContentFetcher:
             return full_text if full_text.strip() else None
             
         except Exception as e:
-            self.logger.error(f"Failed to extract PDF text: {e}")
+            self.logger.error(f"Failed to extract PDF text from {url}: {e}")
             return None
     
     def _extract_web_content(self, url: str) -> Optional[str]:
@@ -83,7 +91,7 @@ class ContentFetcher:
         """
         try:
             # Download the page
-            downloaded = trafilatura.fetch_url(url, no_ssl=True, decode=True)
+            downloaded = trafilatura.fetch_url(url, no_ssl=True)
             if not downloaded:
                 self.logger.warning(f"Failed to download: {url}")
                 return None
@@ -116,7 +124,7 @@ class ContentFetcher:
             return None
     
     def fetch(self, source: Source) -> Optional[str]:
-        """Fetch and process content from source URL"""
+        """Fetch and process content from source URL using MIME-based routing"""
         cache_key = self._get_cache_key(source.url)
         
         # Check cache first
@@ -132,32 +140,62 @@ class ContentFetcher:
         self.logger.info(f"Fetching content for {source.id}: {source.url}")
         
         try:
-            # Determine if URL is a PDF
-            is_pdf = (
-                "cms.rt.microsoft.com/cms/api/am/binary" in source.url or
-                source.url.lower().endswith('.pdf') or
-                '/pdf/' in source.url.lower() or
-                'format=pdf' in source.url.lower()
-            )
+            # Download content with proper headers
+            response = requests.get(source.url, timeout=self.timeout, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
             
-            if is_pdf:
-                # Extract PDF text
-                self.logger.info(f"Processing as PDF: {source.id}")
-                raw_text = self._extract_pdf_text(source.url)
-                if not raw_text:
-                    self.logger.warning(f"No text extracted from PDF: {source.id}")
-                    return None
-                # Process PDF text
-                content, metadata = self.text_processor.process_text(raw_text, "pdf")
+            # Detect MIME type
+            headers = {k.lower(): v for k, v in response.headers.items()}
+            mime_type, content_type = self.mime_router.detect_mime_type(source.url, headers)
+            
+            self.logger.info(f"Detected content type '{content_type}' (MIME: {mime_type}) for {source.id}")
+            
+            # Check if we should process this type
+            if not self.mime_router.should_process(content_type):
+                self.logger.info(f"Skipping content type '{content_type}' for {source.id}")
+                return None
+            
+            # Get extraction method
+            extraction_method_name = self.mime_router.get_extraction_method(content_type)
+            extraction_method = getattr(self.extractors, extraction_method_name, None)
+            
+            if not extraction_method:
+                self.logger.warning(f"No extraction method for type '{content_type}'")
+                return None
+            
+            # Extract content using appropriate method
+            # Pass URL for HTML extraction
+            if content_type == 'html':
+                raw_text = extraction_method(response.content, source.url)
             else:
-                # Extract web content using trafilatura
-                self.logger.info(f"Processing as web content: {source.id}")
-                raw_text = self._extract_web_content(source.url)
-                if not raw_text:
-                    self.logger.warning(f"No content extracted from web page: {source.id}")
-                    return None
-                # Process web text
-                content, metadata = self.text_processor.process_text(raw_text, "html")
+                raw_text = extraction_method(response.content)
+            
+            if not raw_text:
+                self.logger.warning(f"No content extracted from {content_type}: {source.id}")
+                return None
+            
+            # Process extracted text
+            # Map content types to processing types
+            processing_type_map = {
+                'pdf': 'pdf',
+                'html': 'html',
+                'docx': 'document',
+                'doc': 'document',
+                'pptx': 'document',
+                'ppt': 'document',
+                'xlsx': 'spreadsheet',
+                'xls': 'spreadsheet',
+                'csv': 'spreadsheet',
+                'json': 'data',
+                'markdown': 'markdown',
+                'text': 'general',
+                'image': 'ocr',
+            }
+            
+            processing_type = processing_type_map.get(content_type, 'general')
+            content, metadata = self.text_processor.process_text(raw_text, processing_type)
             
             # Check if content is valid
             if not metadata.get("is_valid", False):
@@ -169,12 +207,19 @@ class ContentFetcher:
                 self.logger.info(f"Low-signal content detected for {source.id}")
             
             # Cache the processed content
+            # Include extractor metadata if available
+            extractor_metadata = {}
+            if hasattr(self.extractors, 'last_metadata'):
+                extractor_metadata = self.extractors.last_metadata
+            
             self.cache[cache_key] = {
                 'content': content,
                 'timestamp': time.time(),
                 'url': source.url,
-                'is_pdf': is_pdf,
-                'metadata': metadata
+                'mime_type': mime_type,
+                'content_type': content_type,
+                'metadata': metadata,
+                'extractor_metadata': extractor_metadata
             }
             self._save_cache()
             
@@ -183,8 +228,11 @@ class ContentFetcher:
             
             return content
             
+        except requests.RequestException as e:
+            self.logger.error(f"Failed to download content for {source.id}: {e}")
+            return None
         except Exception as e:
-            self.logger.error(f"Failed to fetch content for {source.id}: {e}")
+            self.logger.error(f"Failed to process content for {source.id}: {e}")
             return None
     
     def clear_cache(self):
