@@ -113,6 +113,8 @@ Each chunk includes:
 - Rich metadata for filtering
 - Quality scores for ranking
 
+📘 [See full schema documentation →](CONTRIBUTING.md#chunk-schema)
+
 ## Supported Formats
 
 | Format | Examples | Quality |
@@ -267,6 +269,6 @@ MIT - Use it for anything!
 
 [Get Started](#quick-start) • [Examples](#real-examples) • [Documentation](CONTRIBUTING.md)
 
-Built with ❤️ by developers tired of PDF parsing
+Built with ❤️ by [Sofiane Djerbi](https://github.com/sofianedjerbi)
 
 </div>
