@@ -154,17 +154,16 @@ data/
 ```
 
 ### JSONL Chunks Format
-**Certification Resource** (`aws/cert/clf-c02.jsonl`):
+**Document Resource** (`technical/programming/python-docs.jsonl`):
 ```json
 {
-  "id": "exam-guide-clf-c02#00001-a3f5b2c8d9e1f4a7",
-  "text": "The AWS Certified Cloud Practitioner validates...",
-  "source_url": "https://.../AWS-Certified-Cloud-Practitioner_Exam-Guide.pdf",
-  "page_title": "AWS CLF-C02 Exam Guide",
-  "service": [],
-  "domain_exam": "Cloud Concepts",
-  "certification": "CLF-C02",
-  "provider": "AWS",
+  "id": "python-docs#00001-a3f5b2c8d9e1f4a7",
+  "text": "Python is an interpreted, high-level programming language...",
+  "source_url": "https://docs.python.org/3/",
+  "page_title": "Python 3 Documentation",
+  "category": "technical",
+  "subcategory": "programming",
+  "tags": ["python", "programming", "reference"],
   "chunk_index": 1,
   "total_chunks": 45,
   "is_low_signal": false,
@@ -172,17 +171,17 @@ data/
 }
 ```
 
-**Service Resource** (`aws/service/ec2.jsonl`):
+**Research Paper** (`research/ml/transformers.jsonl`):
 ```json
 {
-  "id": "ec2-concepts#00012-6c9a1b5f0b5a3f7e",
-  "text": "Amazon EC2 provides scalable computing...",
-  "source_url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html",
-  "page_title": "EC2 Concepts",
-  "service": ["EC2"],
-  "domain_exam": "Cloud Technology and Services",
-  "certification": "CLF-C02",
-  "provider": "AWS",
+  "id": "transformers#00012-6c9a1b5f0b5a3f7e",
+  "text": "The Transformer model architecture relies entirely on self-attention...",
+  "source_url": "https://arxiv.org/abs/1706.03762",
+  "page_title": "Attention Is All You Need",
+  "category": "research",
+  "subcategory": "machine_learning",
+  "tags": ["transformers", "nlp", "deep_learning"],
+  "metadata": {"authors": ["Vaswani et al."], "year": 2017},
   "chunk_index": 12,
   "total_chunks": 87,
   "is_low_signal": false,
@@ -190,10 +189,10 @@ data/
 }
 ```
 
-### JSONL Embeddings (`aws/service/ec2.jsonl` in embeds/)
+### JSONL Embeddings (`technical/programming/python-docs.jsonl` in embeds/)
 ```json
 {
-  "id": "ec2-concepts#00012-6c9a1b5f0b5a3f7e",
+  "id": "python-docs#00012-6c9a1b5f0b5a3f7e",
   "embedding": [0.1234, -0.5678, ... 1536 floats ...]
 }
 ```
@@ -206,25 +205,28 @@ The pipeline generates an enhanced `summary.json` with:
 ```json
 {
   "organization": {
-    "aws": {
-      "certifications": [
-        {"code": "clf-c02", "chunks": 450, "file": "aws/cert/clf-c02.jsonl"},
-        {"code": "saa-c03", "chunks": 380, "file": "aws/cert/saa-c03.jsonl"}
+    "technical": {
+      "documents": [
+        {"id": "python-docs", "chunks": 450, "file": "technical/programming/python-docs.jsonl"},
+        {"id": "kubernetes-docs", "chunks": 380, "file": "technical/infrastructure/kubernetes-docs.jsonl"}
       ],
-      "services": [
-        {"name": "ec2", "chunks": 120, "file": "aws/service/ec2.jsonl"},
-        {"name": "s3", "chunks": 95, "file": "aws/service/s3.jsonl"}
+      "total_chunks": 830
+    },
+    "research": {
+      "documents": [
+        {"id": "transformers-paper", "chunks": 120, "file": "research/ml/transformers.jsonl"},
+        {"id": "bert-paper", "chunks": 95, "file": "research/ml/bert.jsonl"}
       ],
-      "total_chunks": 1045
+      "total_chunks": 215
     }
   }
 }
 ```
 
 ### Statistics Tracked
-- **By Provider**: AWS, Azure, GCP chunk distribution
-- **By Certification**: CLF-C02, SAA-C03, DVA-C02, etc.
-- **By Service**: EC2, S3, Lambda, VPC, etc.
+- **By Category**: Technical, Research, Medical, Legal distribution
+- **By Subcategory**: Programming, Infrastructure, ML, etc.
+- **By Tags**: Common topics and themes across documents
 - **By Section Type**: content, references, toc, code
 - **Low-signal percentage**: Target <5%
 - **Files written**: Complete list of output files
@@ -308,10 +310,10 @@ CREATE TABLE rag_chunks (
   text          text NOT NULL,
   source_url    text,
   page_title    text,
-  service       text[],
-  domain_exam   text,
-  certification text,
-  provider      text,
+  category      text,
+  subcategory   text,
+  tags          text[],
+  metadata      jsonb,
   chunk_index   int,
   total_chunks  int,
   is_low_signal boolean,
@@ -321,8 +323,8 @@ CREATE TABLE rag_chunks (
 
 CREATE INDEX idx_embedding ON rag_chunks 
   USING ivfflat (embedding vector_cosine_ops);
-CREATE INDEX idx_service ON rag_chunks USING GIN (service);
-CREATE INDEX idx_cert ON rag_chunks (certification);
+CREATE INDEX idx_category ON rag_chunks (category);
+CREATE INDEX idx_tags ON rag_chunks USING GIN (tags);
 ```
 
 ---
@@ -393,11 +395,10 @@ Complete schema specification for DocuVec chunks:
   "total_chunks": 15,
   "chunk_char_start": 1250,
   "chunk_char_end": 2100,
-  "service": ["auth"],
-  "domain_exam": "",
-  "certification": "",
-  "provider": "technical",
-  "resource_type": "document"
+  "category": "technical",
+  "subcategory": "api_documentation",
+  "tags": ["auth", "api", "security"],
+  "metadata": {"version": "2.0", "deprecated": false}
 }
 ```
 
@@ -490,11 +491,10 @@ Complete schema specification for DocuVec chunks:
 #### Legacy/Optional Fields
 | Field | Type | Description |
 |-------|------|-------------|
-| `service` | string[] | Service names for API docs |
-| `domain_exam` | string | Domain/exam category |
-| `certification` | string | Certification code |
-| `provider` | string | Category/provider |
-| `resource_type` | string | Type: `document\|service` |
+| `category` | string | Document category (technical, medical, legal, etc.) |
+| `subcategory` | string | Subcategory for finer organization |
+| `tags` | string[] | Flexible tagging system |
+| `metadata` | object | Custom metadata specific to domain |
 
 ## Architecture Overview
 

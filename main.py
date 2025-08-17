@@ -98,34 +98,30 @@ def main():
             accessible_count = sum(1 for r in results if r['accessible'])
             failed_count = len(results) - accessible_count
             
-            # Group by provider and type
-            by_provider = {}
+            # Group by category
+            by_category = {}
             for result in results:
-                provider = result['source'].tags.get('provider', 'Unknown')
-                source_type = result['source'].tags.get('type', 'Unknown')
+                category = result['source'].tags.get('category', 'general')
                 
-                if provider not in by_provider:
-                    by_provider[provider] = {'cert': [], 'service': []}
+                if category not in by_category:
+                    by_category[category] = []
                 
-                by_provider[provider][source_type].append(result)
+                by_category[category].append(result)
             
-            # Display results by provider
-            for provider in sorted(by_provider.keys()):
-                print(f"\n{provider} Sources:")
+            # Display results by category
+            for category in sorted(by_category.keys()):
+                print(f"\n{category.title()} Sources:")
                 print(f"{'-'*40}")
                 
-                for source_type in ['cert', 'service']:
-                    if by_provider[provider][source_type]:
-                        print(f"\n  {source_type.upper()} Resources:")
-                        for result in by_provider[provider][source_type]:
-                            status = "✓" if result['accessible'] else "✗"
-                            color = "\033[92m" if result['accessible'] else "\033[91m"
-                            reset = "\033[0m"
-                            
-                            print(f"    {color}{status}{reset} {result['source'].id}")
-                            if not result['accessible']:
-                                print(f"      Error: {result['error']}")
-                                print(f"      URL: {result['source'].url}")
+                for result in by_category[category]:
+                    status = "✓" if result['accessible'] else "✗"
+                    color = "\033[92m" if result['accessible'] else "\033[91m"
+                    reset = "\033[0m"
+                    
+                    print(f"  {color}{status}{reset} {result['source'].id}")
+                    if not result['accessible']:
+                        print(f"    Error: {result['error']}")
+                        print(f"    URL: {result['source'].url}")
             
             # Summary
             print(f"\n{'='*80}")

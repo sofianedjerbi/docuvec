@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 @dataclass
 class Source:
-    """Data class for certification source"""
+    """Data class for document source"""
     id: str
     url: str
     title: str

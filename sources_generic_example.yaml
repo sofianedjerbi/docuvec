@@ -1,0 +1,280 @@
+# DocuVec Sources Configuration - Generic Examples
+# This file demonstrates how to configure ANY type of content
+# The system is completely flexible and domain-agnostic
+
+# =============================================================================
+# TECHNICAL DOCUMENTATION
+# =============================================================================
+
+# Programming Languages
+- id: "python-docs"
+  url: "https://docs.python.org/3/"
+  title: "Python 3 Documentation"
+  tags:
+    category: "technical"
+    subcategory: "programming"
+    tags: ["python", "programming", "reference"]
+    language: "en"
+
+# Infrastructure & DevOps
+- id: "kubernetes-docs"
+  url: "https://kubernetes.io/docs/"
+  title: "Kubernetes Documentation"
+  tags:
+    category: "technical"
+    subcategory: "infrastructure"
+    tags: ["kubernetes", "containers", "orchestration"]
+    language: "en"
+
+# API Documentation
+- id: "openai-api-docs"
+  url: "https://platform.openai.com/docs/"
+  title: "OpenAI API Documentation"
+  tags:
+    category: "technical"
+    subcategory: "api"
+    tags: ["openai", "api", "ai", "gpt"]
+    language: "en"
+
+# =============================================================================
+# ACADEMIC & RESEARCH
+# =============================================================================
+
+# Research Papers
+- id: "attention-paper"
+  url: "https://arxiv.org/abs/1706.03762"
+  title: "Attention Is All You Need"
+  tags:
+    category: "research"
+    subcategory: "machine_learning"
+    tags: ["transformers", "nlp", "deep_learning"]
+    language: "en"
+    metadata:
+      authors: ["Vaswani et al."]
+      year: 2017
+      venue: "NeurIPS"
+
+# Educational Content
+- id: "mit-ocw-linear-algebra"
+  url: "https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/"
+  title: "MIT OCW - Linear Algebra"
+  tags:
+    category: "education"
+    subcategory: "mathematics"
+    tags: ["linear_algebra", "mathematics", "mit"]
+    language: "en"
+    metadata:
+      institution: "MIT"
+      level: "undergraduate"
+      instructor: "Gilbert Strang"
+
+# =============================================================================
+# MEDICAL & HEALTHCARE
+# =============================================================================
+
+# Clinical Guidelines
+- id: "who-covid-guidelines"
+  url: "https://www.who.int/emergencies/diseases/novel-coronavirus-2019"
+  title: "WHO COVID-19 Guidelines"
+  tags:
+    category: "medical"
+    subcategory: "guidelines"
+    tags: ["covid-19", "pandemic", "public_health"]
+    language: "en"
+    metadata:
+      organization: "WHO"
+      last_updated: "2025"
+
+# Medical Research
+- id: "pubmed-diabetes-review"
+  url: "https://pubmed.ncbi.nlm.nih.gov/12345678/"
+  title: "Comprehensive Review of Diabetes Management"
+  tags:
+    category: "medical"
+    subcategory: "research"
+    tags: ["diabetes", "endocrinology", "treatment"]
+    language: "en"
+    metadata:
+      journal: "Nature Medicine"
+      impact_factor: 53.4
+      peer_reviewed: true
+
+# =============================================================================
+# LEGAL & COMPLIANCE
+# =============================================================================
+
+# Regulations
+- id: "gdpr-full-text"
+  url: "https://gdpr-info.eu/"
+  title: "General Data Protection Regulation (GDPR)"
+  tags:
+    category: "legal"
+    subcategory: "privacy"
+    tags: ["gdpr", "privacy", "data_protection", "eu"]
+    language: "en"
+    metadata:
+      jurisdiction: "EU"
+      effective_date: "2018-05-25"
+      regulatory_body: "European Commission"
+
+# Legal Documents
+- id: "us-constitution"
+  url: "https://www.archives.gov/founding-docs/constitution"
+  title: "United States Constitution"
+  tags:
+    category: "legal"
+    subcategory: "constitutional"
+    tags: ["constitution", "law", "government"]
+    language: "en"
+    metadata:
+      country: "USA"
+      ratified: "1788"
+
+# =============================================================================
+# BUSINESS & FINANCE
+# =============================================================================
+
+# Financial Reports
+- id: "apple-10k-2024"
+  url: "https://investor.apple.com/sec-filings/"
+  title: "Apple Inc. Annual Report (10-K)"
+  tags:
+    category: "finance"
+    subcategory: "financial_reports"
+    tags: ["10-k", "earnings", "apple", "tech"]
+    language: "en"
+    metadata:
+      company: "Apple Inc."
+      ticker: "AAPL"
+      fiscal_year: 2024
+      filing_type: "10-K"
+
+# Business Strategy
+- id: "mckinsey-digital-transformation"
+  url: "https://www.mckinsey.com/capabilities/mckinsey-digital/our-insights"
+  title: "Digital Transformation Insights"
+  tags:
+    category: "business"
+    subcategory: "strategy"
+    tags: ["digital_transformation", "consulting", "strategy"]
+    language: "en"
+    metadata:
+      publisher: "McKinsey & Company"
+      content_type: "insights"
+
+# =============================================================================
+# NEWS & MEDIA
+# =============================================================================
+
+# News Articles
+- id: "reuters-tech-news"
+  url: "https://www.reuters.com/technology/"
+  title: "Reuters Technology News"
+  tags:
+    category: "news"
+    subcategory: "technology"
+    tags: ["news", "technology", "current_events"]
+    language: "en"
+    metadata:
+      publication: "Reuters"
+      update_frequency: "daily"
+
+# =============================================================================
+# LIFESTYLE & HOBBIES
+# =============================================================================
+
+# Cooking & Recipes
+- id: "serious-eats-techniques"
+  url: "https://www.seriouseats.com/cooking-techniques"
+  title: "Serious Eats - Cooking Techniques"
+  tags:
+    category: "lifestyle"
+    subcategory: "cooking"
+    tags: ["cooking", "recipes", "techniques", "food"]
+    language: "en"
+    metadata:
+      cuisine: "international"
+      difficulty: "varied"
+
+# Travel Guides
+- id: "lonely-planet-japan"
+  url: "https://www.lonelyplanet.com/japan"
+  title: "Lonely Planet - Japan Travel Guide"
+  tags:
+    category: "travel"
+    subcategory: "guides"
+    tags: ["japan", "travel", "tourism", "guide"]
+    language: "en"
+    metadata:
+      destination: "Japan"
+      guide_type: "comprehensive"
+
+# =============================================================================
+# PHILOSOPHY & HUMANITIES
+# =============================================================================
+
+# Philosophy
+- id: "stanford-philosophy-consciousness"
+  url: "https://plato.stanford.edu/entries/consciousness/"
+  title: "Stanford Encyclopedia - Consciousness"
+  tags:
+    category: "philosophy"
+    subcategory: "mind"
+    tags: ["consciousness", "philosophy", "cognition"]
+    language: "en"
+    metadata:
+      source: "Stanford Encyclopedia of Philosophy"
+      peer_reviewed: true
+
+# History
+- id: "history-roman-empire"
+  url: "https://www.history.com/topics/ancient-rome"
+  title: "History of the Roman Empire"
+  tags:
+    category: "history"
+    subcategory: "ancient"
+    tags: ["rome", "ancient_history", "empire"]
+    language: "en"
+    metadata:
+      period: "27 BC - 476 AD"
+      region: "Mediterranean"
+
+# =============================================================================
+# ENVIRONMENTAL & SUSTAINABILITY
+# =============================================================================
+
+# Climate Science
+- id: "ipcc-climate-report"
+  url: "https://www.ipcc.ch/report/ar6/"
+  title: "IPCC Sixth Assessment Report"
+  tags:
+    category: "environmental"
+    subcategory: "climate"
+    tags: ["climate_change", "ipcc", "global_warming"]
+    language: "en"
+    metadata:
+      report_type: "assessment"
+      year: 2023
+      organization: "IPCC"
+
+# =============================================================================
+# The metadata structure is completely flexible!
+# Add ANY fields that make sense for your domain:
+#
+# For Medical Content:
+#   - symptoms, treatments, drug_interactions, clinical_trials
+#
+# For Legal Content:
+#   - case_law, precedents, statutes, amendments
+#
+# For Academic Content:
+#   - citations, doi, impact_factor, h_index
+#
+# For Product Documentation:
+#   - version, deprecated_features, breaking_changes
+#
+# For Financial Content:
+#   - market_cap, pe_ratio, revenue, profit_margin
+#
+# The system will intelligently process and organize any content type!
+# =============================================================================
