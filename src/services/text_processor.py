@@ -37,6 +37,55 @@ class TextProcessor:
         self.logger = setup_logger(self.__class__.__name__)
         self.seen_hashes: Set[str] = set()
     
+    def strip_frontmatter_and_meta(self, text: str) -> str:
+        """Strip YAML frontmatter, HTML meta tags, and page chrome from text"""
+        # Strip YAML frontmatter (---...--- at start of document)
+        yaml_pattern = r'^---\s*\n.*?\n---\s*\n'
+        text = re.sub(yaml_pattern, '', text, flags=re.DOTALL)
+        
+        # Strip HTML meta tags
+        text = re.sub(r'<meta[^>]*>', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'<title[^>]*>.*?</title>', '', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        # Strip common page chrome patterns
+        chrome_patterns = [
+            r'Skip to (?:main )?content',
+            r'Navigation menu',
+            r'Main menu',
+            r'Breadcrumb(?:s)?',
+            r'You are here:',
+            r'Home\s*>\s*',
+            r'Back to top',
+            r'Print this page',
+            r'Share this (?:page|article)',
+            r'Last updated:?\s*\d+',
+            r'Published:?\s*\d+',
+            r'Tags?:\s*[\w\s,]+',
+            r'Categories?:\s*[\w\s,]+',
+        ]
+        
+        for pattern in chrome_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+        
+        # Remove common metadata patterns at the start of text
+        meta_patterns = [
+            r'^title:\s*.*?\n',
+            r'^url:\s*.*?\n', 
+            r'^author:\s*.*?\n',
+            r'^date:\s*.*?\n',
+            r'^tags:\s*.*?\n',
+            r'^category:\s*.*?\n',
+        ]
+        
+        for pattern in meta_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Clean up extra whitespace
+        text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)  # Collapse multiple newlines
+        text = text.strip()
+        
+        return text
+    
     def fix_hyphenation_and_splits(self, text: str) -> str:
         """Fix word splits, hyphenation, and spacing issues from PDFs and scraped content
         

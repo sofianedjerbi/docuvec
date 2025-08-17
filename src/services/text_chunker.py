@@ -1,21 +1,21 @@
-"""Text chunking service using token-based splitting"""
+"""Enhanced text chunking service with comprehensive metadata extraction"""
 
 import hashlib
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 
 import tiktoken
 
-from datetime import datetime
-
-from src.models import Source, Chunk
+from src.models import Source
+from src.models.chunk import Chunk
 from src.core.logger import setup_logger
 from src.services.text_processor import TextProcessor
-from src.services.structure_chunker import StructureChunker, StructuredChunk
+from src.services.structure_chunker import StructureChunker
 from src.utils.chunk_enrichment import ChunkEnricher
 
 
 class TextChunker:
-    """Service for chunking text into token-based segments"""
+    """Enhanced service for chunking text with rich metadata"""
     
     def __init__(self, max_tokens: int = 700, overlap_tokens: int = 80, min_tokens: int = 40):
         self.max_tokens = max_tokens
@@ -29,12 +29,298 @@ class TextChunker:
             overlap_tokens=overlap_tokens,
             min_tokens=min_tokens
         )
-        self.enricher = ChunkEnricher()  # Create instance for hash computation
+        self.enricher = ChunkEnricher()
     
-    def _generate_chunk_id(self, source_id: str, chunk_index: int, chunk_text: str) -> str:
-        """Generate stable chunk ID with content hash"""
-        content_hash = hashlib.sha1(chunk_text.encode()).hexdigest()[:16]
-        return f"{source_id}#{chunk_index:05d}-{content_hash}"
+    def _generate_chunk_id(self, doc_id: str, chunk_index: int, chunk_text: str) -> str:
+        """Generate stable chunk ID with document reference"""
+        content_hash = hashlib.sha1(chunk_text.encode()).hexdigest()[:8]
+        return f"{doc_id}#{chunk_index:05d}-{content_hash}"
+    
+    def create_chunks(self, source: Source, content: str, 
+                     html_content: Optional[str] = None,
+                     metadata: Optional[Dict] = None,
+                     use_structure: bool = True) -> List[Chunk]:
+        """
+        Create enhanced chunk objects from source and content
+        
+        Args:
+            source: Source object with metadata
+            content: Cleaned text content to chunk
+            html_content: Original HTML for metadata extraction
+            metadata: Additional metadata from extraction
+            use_structure: Whether to use structure-aware chunking
+        """
+        if not content:
+            return []
+        
+        # Strip frontmatter and page chrome
+        content = self.text_processor.strip_frontmatter_and_meta(content)
+        
+        chunks = []
+        tags = source.tags
+        metadata = metadata or {}
+        
+        # Generate document ID and parse URL
+        doc_id = self.enricher.generate_doc_id(source.url)
+        canonical_url, domain, path = self.enricher.parse_url_components(source.url)
+        
+        # Detect content type
+        content_type = tags.get('content_type', 'html')
+        if source.url.endswith('.pdf'):
+            content_type = 'pdf'
+        elif source.url.endswith('.md'):
+            content_type = 'markdown'
+        elif source.url.endswith('.docx'):
+            content_type = 'docx'
+        
+        # Extract language with confidence
+        html_lang = metadata.get('language') or tags.get('language')
+        language = self.enricher.detect_language(content, html_lang)
+        lang_detected, language_confidence = self.enricher.detect_language_with_confidence(content)
+        
+        # Extract dates from metadata
+        published_at, modified_at = self.enricher.extract_dates_from_metadata(metadata)
+        
+        # Extract robots meta if HTML available
+        noindex, nofollow = False, False
+        if html_content:
+            noindex, nofollow = self.enricher.extract_robots_meta(html_content)
+        
+        # Detect source type
+        source_type = self.enricher.detect_source_type(source.url, content)
+        
+        # Calculate source confidence
+        source_confidence = self.enricher.calculate_source_confidence(domain, source_type)
+        
+        # Calculate document SHA1 hash for deduplication
+        doc_sha1 = self.enricher.compute_content_hash(content)[:16]
+        
+        # Track character offsets
+        char_offset = 0
+        
+        if use_structure:
+            # Try structure-aware chunking first
+            try:
+                structured_chunks = self.structure_chunker.chunk_text(
+                    content,
+                    page_title=source.title,
+                    page_language=language,
+                    metadata={
+                        'source_id': source.id,
+                        'url': source.url
+                    }
+                )
+                
+                # Convert structured chunks to enhanced Chunk objects
+                for i, s_chunk in enumerate(structured_chunks):
+                    # Extract content features
+                    features = self.enricher.detect_content_features(s_chunk.text)
+                    
+                    # Calculate retrieval weight
+                    retrieval_weight = self.enricher.calculate_retrieval_weight(
+                        s_chunk.text,
+                        s_chunk.hierarchical_title,
+                        "structured"
+                    )
+                    
+                    # Determine low signal reason
+                    low_signal_reason = self.enricher.detect_low_signal_reason(
+                        s_chunk.text,
+                        s_chunk.is_low_signal
+                    )
+                    
+                    # Calculate character positions
+                    chunk_char_start = char_offset
+                    chunk_char_end = char_offset + len(s_chunk.text)
+                    char_offset = chunk_char_end - self.overlap_tokens * 4  # Approximate char overlap
+                    
+                    # Detect modality
+                    modality = self.enricher.detect_modality(
+                        s_chunk.text, 
+                        features['has_table'], 
+                        features['has_code']
+                    )
+                    
+                    chunk = Chunk(
+                        # Core fields
+                        id=self._generate_chunk_id(doc_id, i, s_chunk.text),
+                        doc_id=doc_id,
+                        text=s_chunk.text,
+                        
+                        # Source & provenance
+                        source_type=source_type,
+                        source_url=source.url,
+                        canonical_url=canonical_url,
+                        domain=domain,
+                        path=path,
+                        
+                        # Content metadata
+                        modality=modality,
+                        format=content_type,
+                        lang=language,
+                        language_confidence=language_confidence,
+                        page_title=s_chunk.hierarchical_title,
+                        title_hierarchy=s_chunk.headings[:3],  # Limit to 3 levels
+                        
+                        # Timestamps
+                        published_at=published_at,
+                        modified_at=modified_at,
+                        crawl_ts=datetime.now(),
+                        
+                        # Hashing & Dedup
+                        content_sha1=self.enricher.compute_content_hash(s_chunk.text),
+                        doc_sha1=doc_sha1,
+                        simhash=self.enricher.compute_simhash(s_chunk.text),
+                        
+                        # Chunk metadata
+                        chunk_index=s_chunk.chunk_index,
+                        total_chunks=s_chunk.total_chunks,
+                        char_start=chunk_char_start,
+                        char_end=chunk_char_end,
+                        tokens=s_chunk.token_count,
+                        
+                        # Quality and relevance
+                        is_low_signal=s_chunk.is_low_signal,
+                        low_signal_reason=low_signal_reason,
+                        retrieval_weight=retrieval_weight,
+                        source_confidence=source_confidence,
+                        section_type="structured" if features['headings'] else "simple",
+                        
+                        # Content features
+                        headings=features['headings'],
+                        
+                        # Compliance, Safety & Sensitivity  
+                        robots_noindex=noindex,
+                        robots_nofollow=nofollow,
+                        
+                        # Legacy fields
+                        category=tags.get('category', 'general'),
+                        subcategory=tags.get('subcategory', ''),
+                        tags=tags.get('tags', []),
+                        metadata={k: v for k, v in tags.items() 
+                                if k not in ['category', 'subcategory', 'tags', 'language']},
+                        service=tags.get('service', []),
+                        domain_exam=tags.get('domain_exam', ''),
+                        certification=tags.get('certification', ''),
+                        provider=tags.get('provider', ''),
+                        resource_type=tags.get('type', 'document'),
+                    )
+                    
+                    chunks.append(chunk)
+                
+                if chunks:
+                    self.logger.info(f"Created {len(chunks)} enhanced structure-aware chunks for {source.id}")
+                    return chunks
+                
+            except Exception as e:
+                self.logger.warning(f"Structure chunking failed for {source.id}, falling back: {e}")
+        
+        # Fallback to simple token-based chunking
+        text_chunks = self.chunk_text(content)
+        
+        if not text_chunks:
+            self.logger.warning(f"No valid chunks created for {source.id}")
+            return []
+        
+        # Deduplicate chunks
+        text_chunks = self.text_processor.deduplicate_chunks(text_chunks)
+        
+        # Create enhanced chunk objects
+        for i, chunk_text in enumerate(text_chunks):
+            # Extract content features
+            features = self.enricher.detect_content_features(chunk_text)
+            
+            # Calculate retrieval weight
+            retrieval_weight = self.enricher.calculate_retrieval_weight(
+                chunk_text,
+                source.title,
+                "simple"
+            )
+            
+            # Calculate character positions
+            chunk_char_start = char_offset
+            chunk_char_end = char_offset + len(chunk_text)
+            char_offset = chunk_char_end - self.overlap_tokens * 4
+            
+            # Count tokens
+            tokens = len(self.tokenizer.encode(chunk_text))
+            
+            # Detect modality
+            modality = self.enricher.detect_modality(
+                chunk_text, 
+                features['has_table'], 
+                features['has_code']
+            )
+            
+            chunk = Chunk(
+                # Core fields
+                id=self._generate_chunk_id(doc_id, i, chunk_text),
+                doc_id=doc_id,
+                text=chunk_text,
+                
+                # Source & provenance
+                source_type=source_type,
+                source_url=source.url,
+                canonical_url=canonical_url,
+                domain=domain,
+                path=path,
+                
+                # Content metadata
+                modality=modality,
+                format=content_type,
+                lang=language,
+                language_confidence=language_confidence,
+                page_title=source.title,
+                title_hierarchy=[source.title],
+                
+                # Timestamps
+                published_at=published_at,
+                modified_at=modified_at,
+                crawl_ts=datetime.now(),
+                
+                # Hashing & Dedup
+                content_sha1=self.enricher.compute_content_hash(chunk_text),
+                doc_sha1=doc_sha1,
+                simhash=self.enricher.compute_simhash(chunk_text),
+                
+                # Chunk metadata
+                chunk_index=i,
+                total_chunks=len(text_chunks),
+                char_start=chunk_char_start,
+                char_end=chunk_char_end,
+                tokens=tokens,
+                
+                # Quality and relevance
+                is_low_signal=False,
+                low_signal_reason="",
+                retrieval_weight=retrieval_weight,
+                source_confidence=source_confidence,
+                section_type="simple",
+                
+                # Content features
+                headings=features['headings'],
+                
+                # Compliance, Safety & Sensitivity
+                robots_noindex=noindex,
+                robots_nofollow=nofollow,
+                
+                # Legacy fields
+                category=tags.get('category', 'general'),
+                subcategory=tags.get('subcategory', ''),
+                tags=tags.get('tags', []),
+                metadata={k: v for k, v in tags.items() 
+                        if k not in ['category', 'subcategory', 'tags', 'language']},
+                service=tags.get('service', []),
+                domain_exam=tags.get('domain_exam', ''),
+                certification=tags.get('certification', ''),
+                provider=tags.get('provider', ''),
+                resource_type=tags.get('type', 'document'),
+            )
+            
+            chunks.append(chunk)
+        
+        self.logger.info(f"Created {len(chunks)} enhanced simple chunks for {source.id}")
+        return chunks
     
     def chunk_text(self, text: str) -> List[str]:
         """Split text into chunks by tokens with overlap"""
@@ -72,166 +358,4 @@ class TextChunker:
                 break
             i += (self.max_tokens - self.overlap_tokens)
         
-        return chunks
-    
-    def _detect_content_type(self, url: str) -> str:
-        """Detect content type from URL"""
-        url_lower = url.lower()
-        if url_lower.endswith('.pdf'):
-            return 'pdf'
-        elif url_lower.endswith('.docx'):
-            return 'docx'
-        elif url_lower.endswith('.doc'):
-            return 'doc'
-        elif url_lower.endswith('.md'):
-            return 'markdown'
-        elif url_lower.endswith('.txt'):
-            return 'text'
-        else:
-            return 'html'  # Default for web pages
-    
-    def create_chunks(self, source: Source, content: str, use_structure: bool = True) -> List[Chunk]:
-        """
-        Create chunk objects from source and content
-        
-        Args:
-            source: Source object with metadata
-            content: Text content to chunk
-            use_structure: Whether to use structure-aware chunking
-        """
-        if not content:
-            return []
-        
-        chunks = []
-        tags = source.tags if source.tags else {}
-        
-        # Extract generic metadata
-        category = tags.get('category', 'general')
-        subcategory = tags.get('subcategory', '')
-        tag_list = tags.get('tags', [])
-        if isinstance(tag_list, str):
-            tag_list = [tag_list]
-        
-        # Custom metadata - pass through any additional fields
-        custom_metadata = {k: v for k, v in tags.items() 
-                          if k not in ['category', 'subcategory', 'tags', 'language']}
-        
-        language = tags.get('language', 'en')
-        
-        # Detect actual content type from URL
-        detected_content_type = self._detect_content_type(source.url)
-        
-        # Skip structure chunking for PDFs (they rarely have markdown headings)
-        is_pdf = detected_content_type == 'pdf'
-        
-        if use_structure and not is_pdf:
-            # Try structure-aware chunking first
-            try:
-                structured_chunks = self.structure_chunker.chunk_text(
-                    content,
-                    page_title=source.title,
-                    page_language=language,
-                    metadata={
-                        'source_id': source.id,
-                        'url': source.url
-                    }
-                )
-                
-                # Convert structured chunks to Chunk objects
-                for i, s_chunk in enumerate(structured_chunks):
-                    # Skip low-signal chunks if configured
-                    if s_chunk.is_low_signal:
-                        self.logger.debug(f"Skipping low-signal chunk {i} from {source.id}")
-                        continue
-                    
-                    # Calculate actual token count
-                    token_count = len(self.tokenizer.encode(s_chunk.text))
-                    
-                    # Calculate content hashes for deduplication
-                    content_sha1 = self.enricher.compute_content_hash(s_chunk.text)
-                    simhash = self.enricher.compute_simhash(s_chunk.text)
-                    
-                    chunk = Chunk(
-                        id=s_chunk.chunk_id,
-                        doc_id=source.id,
-                        text=s_chunk.text,
-                        source_url=source.url,
-                        canonical_url=source.url,
-                        domain=source.url.split("//")[1].split("/")[0] if "//" in source.url else source.url.split("/")[0],
-                        path="/" + "/".join(source.url.split("/")[3:]) if len(source.url.split("/")) > 3 else "/",
-                        page_title=s_chunk.hierarchical_title,  # Use hierarchical title
-                        title_hierarchy=s_chunk.headings if hasattr(s_chunk, 'headings') else [source.title],
-                        lang=language,
-                        format=detected_content_type,
-                        tokens=token_count,
-                        content_sha1=content_sha1,
-                        simhash=simhash,
-                        crawl_ts=datetime.now(),
-                        category=category,
-                        subcategory=subcategory,
-                        tags=tag_list,
-                        metadata=custom_metadata,
-                        chunk_index=s_chunk.chunk_index,
-                        total_chunks=s_chunk.total_chunks,
-                        is_low_signal=s_chunk.is_low_signal,
-                        section_type="structured"  # Mark as structure-aware
-                    )
-                    chunks.append(chunk)
-                
-                if chunks:
-                    self.logger.info(f"Created {len(chunks)} structure-aware chunks for {source.id}")
-                    return chunks
-                
-            except Exception as e:
-                self.logger.warning(f"Structure chunking failed for {source.id}, falling back: {e}")
-        
-        # Fallback to simple token-based chunking
-        text_chunks = self.chunk_text(content)
-        
-        if not text_chunks:
-            self.logger.warning(f"No valid chunks created for {source.id}")
-            return []
-        
-        # Deduplicate chunks
-        text_chunks = self.text_processor.deduplicate_chunks(text_chunks)
-        
-        # Create chunk objects
-        for i, chunk_text in enumerate(text_chunks):
-            chunk_id = self._generate_chunk_id(source.id, i, chunk_text)
-            
-            # Calculate actual token count
-            token_count = len(self.tokenizer.encode(chunk_text))
-            
-            # Calculate content hashes for deduplication
-            content_sha1 = self.enricher.compute_content_hash(chunk_text)
-            simhash = self.enricher.compute_simhash(chunk_text)
-            
-            chunk = Chunk(
-                id=chunk_id,
-                doc_id=source.id,
-                text=chunk_text,
-                source_url=source.url,
-                canonical_url=source.url,
-                domain=source.url.split("//")[1].split("/")[0] if "//" in source.url else source.url.split("/")[0],
-                path="/" + "/".join(source.url.split("/")[3:]) if len(source.url.split("/")) > 3 else "/",
-                page_title=source.title,
-                title_hierarchy=[source.title],
-                lang=language,
-                format=detected_content_type,  # Map old field name to new
-                tokens=token_count,
-                content_sha1=content_sha1,
-                simhash=simhash,
-                crawl_ts=datetime.now(),
-                category=category,
-                subcategory=subcategory,
-                tags=tag_list,
-                metadata=custom_metadata,
-                chunk_index=i,
-                total_chunks=len(text_chunks),
-                section_type="simple"  # Mark as simple chunking
-            )
-            
-            chunks.append(chunk)
-        
-        self.logger.info(f"Created {len(chunks)} simple chunks for {source.id}")
         return chunks

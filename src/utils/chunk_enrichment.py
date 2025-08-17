@@ -397,17 +397,19 @@ class ChunkEnricher:
         
         return urlunparse(parsed)
     
-    def parse_url_components(self, url: str) -> Dict[str, str]:
-        """Parse URL into components"""
+    def normalize_domain(self, domain: str) -> str:
+        """Normalize domain by removing www prefix"""
+        if domain.startswith("www."):
+            return domain[4:]
+        return domain
+    
+    def parse_url_components(self, url: str) -> Tuple[str, str, str]:
+        """Parse URL into components and return tuple"""
         parsed = urlparse(url)
         canonical = self.canonicalize_url(url)
+        normalized_domain = self.normalize_domain(parsed.netloc)
         
-        return {
-            "canonical_url": canonical,
-            "domain": parsed.netloc,
-            "path": parsed.path or "/",
-            "ref_fragment": parsed.fragment if parsed.fragment else None
-        }
+        return canonical, normalized_domain, parsed.path or "/"
     
     def detect_source_type(self, url: str, content: str) -> str:
         """Detect source type based on URL and content"""
@@ -700,6 +702,19 @@ class ChunkEnricher:
         
         return spans
     
+    def detect_language(self, text: str, html_lang: Optional[str] = None) -> str:
+        """Detect language from text or HTML lang attribute"""
+        # Use HTML lang attribute if available and valid
+        if html_lang and len(html_lang) >= 2:
+            return html_lang[:2].lower()
+        
+        try:
+            # Use langdetect for text analysis
+            detected = langdetect.detect(text[:1000])  # Use first 1000 chars
+            return detected
+        except:
+            return "en"  # Default to English
+    
     def detect_language_with_confidence(self, text: str) -> Tuple[str, float]:
         """Detect language and confidence score"""
         try:
@@ -744,3 +759,126 @@ class ChunkEnricher:
                         continue
         
         return temporal
+    
+    def extract_robots_meta(self, html_content: str) -> Tuple[bool, bool]:
+        """Extract robots meta directives from HTML"""
+        noindex = False
+        nofollow = False
+        
+        # Check meta robots tags
+        robots_pattern = r'<meta\s+name=["\']robots["\'][^>]*content=["\']([^"\']*)["\'][^>]*>'
+        matches = re.findall(robots_pattern, html_content, re.IGNORECASE)
+        
+        for content in matches:
+            content_lower = content.lower()
+            if 'noindex' in content_lower:
+                noindex = True
+            if 'nofollow' in content_lower:
+                nofollow = True
+        
+        return noindex, nofollow
+    
+    def extract_dates_from_metadata(self, metadata: Dict[str, Any]) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """Extract published and modified dates from metadata"""
+        published_at = None
+        modified_at = None
+        
+        # Common date field mappings
+        pub_fields = ["datePublished", "published_time", "publish_date", "created_at", "publication_date"]
+        mod_fields = ["dateModified", "modified_time", "updated_at", "lastmod", "last_updated"]
+        
+        for field in pub_fields:
+            if field in metadata and metadata[field]:
+                try:
+                    if isinstance(metadata[field], str):
+                        published_at = date_parser.parse(metadata[field])
+                    elif isinstance(metadata[field], datetime):
+                        published_at = metadata[field]
+                    break
+                except:
+                    continue
+        
+        for field in mod_fields:
+            if field in metadata and metadata[field]:
+                try:
+                    if isinstance(metadata[field], str):
+                        modified_at = date_parser.parse(metadata[field])
+                    elif isinstance(metadata[field], datetime):
+                        modified_at = metadata[field]
+                    break
+                except:
+                    continue
+        
+        return published_at, modified_at
+    
+    def detect_content_features(self, text: str) -> Dict[str, Any]:
+        """Detect various content features"""
+        features = {
+            'headings': [],
+            'has_code': False,
+            'has_table': False,
+            'has_list': False,
+            'links_out': 0
+        }
+        
+        # Extract headings
+        heading_patterns = [
+            r'^#+\s+(.+)$',  # Markdown headings
+            r'<h[1-6][^>]*>(.*?)</h[1-6]>',  # HTML headings
+        ]
+        
+        for pattern in heading_patterns:
+            matches = re.findall(pattern, text, re.MULTILINE | re.IGNORECASE)
+            features['headings'].extend([h.strip() for h in matches])
+        
+        # Remove duplicates and limit
+        features['headings'] = list(set(features['headings']))[:10]
+        
+        # Detect code blocks
+        code_patterns = [
+            r'```.*?```',  # Markdown code blocks
+            r'<code>.*?</code>',  # HTML code
+            r'<pre>.*?</pre>',  # HTML pre
+        ]
+        
+        for pattern in code_patterns:
+            if re.search(pattern, text, re.DOTALL):
+                features['has_code'] = True
+                break
+        
+        # Detect tables
+        table_patterns = [
+            r'\|.*\|',  # Markdown tables
+            r'<table.*?</table>',  # HTML tables
+        ]
+        
+        for pattern in table_patterns:
+            if re.search(pattern, text, re.DOTALL):
+                features['has_table'] = True
+                break
+        
+        # Detect lists
+        list_patterns = [
+            r'^\s*[-*+]\s+',  # Markdown unordered lists
+            r'^\s*\d+\.\s+',  # Markdown ordered lists
+            r'<[uo]l>.*?</[uo]l>',  # HTML lists
+        ]
+        
+        for pattern in list_patterns:
+            if re.search(pattern, text, re.MULTILINE | re.DOTALL):
+                features['has_list'] = True
+                break
+        
+        # Count outbound links
+        link_pattern = r'https?://[^\s<>"]+|www\.[^\s<>"]+'
+        features['links_out'] = len(re.findall(link_pattern, text))
+        
+        return features
+    
+    def detect_low_signal_reason(self, text: str, is_low_signal: bool) -> str:
+        """Detect reason for low signal content"""
+        if not is_low_signal:
+            return ""
+        
+        is_low, reason = self.detect_low_signal_content(text)
+        return reason
