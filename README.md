@@ -141,114 +141,99 @@ graph LR
 
 DocuVec produces comprehensive, production-ready chunks with rich metadata:
 
-### Core Fields
 ```json
 {
-  "id": "doc_id#00001-hash",        // Unique chunk identifier
-  "doc_id": "a3f5b2c8",             // Stable document ID
-  "text": "Chunk content...",       // The actual text
-  "embedding": [0.123, -0.456, ...], // Vector (1536D or 3072D)
-}
-```
-
-### Versioning & Auditability
-```json
-{
-  "schema_version": "2.0.0",        // Schema version for migrations
-  "pipeline_version": "abc123",     // ETL pipeline version hash
-  "embedding_model": "text-embedding-3-small",
-  "embedding_dim": 1536,
-  "tokenizer": "cl100k_base"
-}
-```
-
-### URL & Navigation
-```json
-{
-  "source_url": "original URL",
-  "canonical_url": "normalized URL",
-  "domain": "docs.example.com",
-  "path": "/api/auth",
-  "anchor_url": "url#section",      // Deep link to exact location
-  "page_num": 42,                    // For PDFs
-  "anchor_id": "section-2.3"         // For HTML fragments
-}
-```
-
-### Content Metadata
-```json
-{
-  "page_title": "API Docs > Auth",
-  "title_hierarchy": ["API Docs", "Security", "Auth"],
-  "lang": "en",
-  "content_type": "html",            // html|pdf|docx|markdown
-  "source_type": "crawl",            // crawl|upload|api|file
-  "word_count": 127,
-  "tokens": 95
-}
-```
-
-### Timestamps & Hashing
-```json
-{
-  "published_at": "2024-01-15T10:00:00Z",
-  "modified_at": "2024-03-20T14:00:00Z",
-  "crawl_ts": "2024-03-22T09:15:00Z",
-  "content_sha1": "abc123...",      // Cleaned text hash
-  "original_sha1": "def456...",     // Raw content hash
-  "simhash": "789012..."            // Near-duplicate detection
-}
-```
-
-### Quality & Relevance
-```json
-{
-  "retrieval_weight": 1.2,           // 0.0-1.5 (boost FAQs, downweight footers)
-  "source_confidence": 0.95,         // 0.0-1.0 (trust score)
-  "is_low_signal": false,
-  "low_signal_reason": "",           // navigation|footer|legal|advertisement
-  "section_type": "structured"       // structured|simple|content
-}
-```
-
-### Privacy & Compliance
-```json
-{
-  "pii_flags": {
+  // === CORE FIELDS ===
+  "id": "doc_id#00001-hash",           // Unique chunk identifier
+  "doc_id": "a3f5b2c8",                // Stable document ID from canonical URL
+  "text": "The actual chunk content...", // Cleaned, extracted text
+  "embedding": [0.123, -0.456, ...],   // Vector embedding (1536D or 3072D)
+  
+  // === VERSIONING & AUDITABILITY ===
+  "schema_version": "2.0.0",           // Schema version for migrations
+  "pipeline_version": "abc123def",     // ETL pipeline version hash
+  "embedding_model": "text-embedding-3-small",  // Model used for vectors
+  "embedding_dim": 1536,                // Embedding dimensions
+  "tokenizer": "cl100k_base",          // Tokenizer used for chunking
+  
+  // === URL & NAVIGATION ===
+  "source_url": "https://example.com/docs/api.html#section",
+  "canonical_url": "https://example.com/docs/api.html",  // Normalized URL
+  "domain": "example.com",             // Domain for filtering
+  "path": "/docs/api.html",            // Path for section filtering
+  "anchor_url": "https://example.com/docs/api.html#auth",  // Deep link
+  "page_num": 42,                      // PDF page number (if applicable)
+  "anchor_id": "auth",                 // HTML anchor ID
+  
+  // === CONTENT METADATA ===
+  "page_title": "API Documentation > Security > Authentication",
+  "title_hierarchy": ["API Documentation", "Security", "Authentication"],
+  "lang": "en",                        // ISO language code
+  "content_type": "html",              // html|pdf|docx|markdown|txt
+  "source_type": "crawl",              // crawl|upload|api|file
+  "word_count": 127,                   // Word count for snippets
+  "tokens": 95,                        // Token count for limits
+  
+  // === TIMESTAMPS & HASHING ===
+  "published_at": "2024-01-15T10:00:00Z",  // Document publish date
+  "modified_at": "2024-03-20T14:00:00Z",   // Last modification
+  "crawl_ts": "2024-03-22T09:15:00Z",      // When DocuVec processed
+  "content_sha1": "7d865e959b2466918c9863afca942d0fb89d7c9a",  // Clean text hash
+  "original_sha1": "8b2466918c9863afca942d0fb89d7c9a7d865e95", // Raw content hash
+  "simhash": "1101011010101010",           // Near-duplicate detection
+  
+  // === QUALITY & RELEVANCE ===
+  "retrieval_weight": 1.2,             // 0.0-1.5 (boost FAQs, downweight footers)
+  "source_confidence": 0.95,           // 0.0-1.0 (trust score)
+  "is_low_signal": false,              // Low-quality content flag
+  "low_signal_reason": "",             // navigation|footer|legal|advertisement
+  "section_type": "structured",        // structured|simple|content
+  
+  // === PRIVACY & COMPLIANCE ===
+  "pii_flags": {                       // PII detection results
     "email": false,
     "phone": false,
     "ssn": false,
-    "credit_card": false
+    "credit_card": false,
+    "ip_address": false,
+    "person_name": false,
+    "address": false,
+    "id_number": false
   },
-  "license": "MIT",
-  "attribution_required": true,
-  "noindex": false,
-  "nofollow": false
-}
-```
-
-### Content Features
-```json
-{
-  "has_code": true,
-  "has_table": false,
-  "has_list": true,
-  "headings": ["Introduction", "API Overview"],
-  "links_out": 5,
-  "chunk_index": 3,
-  "total_chunks": 15,
-  "chunk_char_start": 1250,
-  "chunk_char_end": 2100
+  "license": "MIT",                    // Content license
+  "attribution_required": true,        // Attribution needed
+  "noindex": false,                    // Respect robots meta
+  "nofollow": false,                   // Respect link following
+  
+  // === CONTENT FEATURES ===
+  "has_code": true,                    // Contains code blocks
+  "has_table": false,                  // Contains tables
+  "has_list": true,                    // Contains lists
+  "headings": ["Authentication", "OAuth 2.0"],  // Section headings
+  "links_out": 5,                      // Number of external links
+  
+  // === CHUNK POSITION ===
+  "chunk_index": 3,                    // Position in document (0-based)
+  "total_chunks": 15,                  // Total chunks from document
+  "chunk_char_start": 1250,            // Character offset start
+  "chunk_char_end": 2100,              // Character offset end
+  
+  // === LEGACY/OPTIONAL FIELDS ===
+  "service": ["auth"],                 // Service names (for API docs)
+  "domain_exam": "",                   // Domain/exam category
+  "certification": "",                  // Certification code
+  "provider": "technical",             // Category/provider
+  "resource_type": "document"          // document|service
 }
 ```
 
 This comprehensive schema enables:
-- **Better retrieval** through weighted scoring
-- **Duplicate control** for efficient recrawling
-- **Filtering** by domain, date, language, quality
-- **Context windows** using character offsets
-- **Compliance** with privacy and licensing
-- **Auditability** of the entire pipeline
+- **Better retrieval** through weighted scoring and confidence metrics
+- **Duplicate control** for efficient recrawling using content hashes
+- **Advanced filtering** by domain, date, language, quality, or PII
+- **Context reconstruction** using character offsets for larger windows
+- **Compliance** with privacy regulations and content licensing
+- **Full auditability** of the entire pipeline and processing versions
 
 ## Real-World Example
 
