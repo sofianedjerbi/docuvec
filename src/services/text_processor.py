@@ -43,6 +43,14 @@ class TextProcessor:
         yaml_pattern = r'^---\s*\n.*?\n---\s*\n'
         text = re.sub(yaml_pattern, '', text, flags=re.DOTALL)
         
+        # Also strip the pattern with spaced dashes (- - - ... - - -)
+        spaced_yaml_pattern = r'^-\s+-\s+-.*?-\s+-\s+-\s*\n'
+        text = re.sub(spaced_yaml_pattern, '', text, flags=re.DOTALL)
+        
+        # Strip inline metadata patterns like "- - - title: ... - - -"
+        inline_meta_pattern = r'-\s+-\s+-\s+(?:title|url|hostname|description|sitename|date):[^-]*-\s+-\s+-'
+        text = re.sub(inline_meta_pattern, '', text, flags=re.DOTALL)
+        
         # Strip HTML meta tags
         text = re.sub(r'<meta[^>]*>', '', text, flags=re.IGNORECASE)
         text = re.sub(r'<title[^>]*>.*?</title>', '', text, flags=re.IGNORECASE | re.DOTALL)

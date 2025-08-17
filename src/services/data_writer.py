@@ -42,66 +42,27 @@ class DataWriter:
     
     def _build_chunk_record(self, chunk: Chunk) -> dict:
         """Build chunk record with content and metadata (no embeddings)"""
-        return {
-            # Core identification
-            "id": chunk.id,
-            "doc_id": chunk.doc_id,
-            "text": chunk.text,
-            
-            # URL and source info
-            "source_url": chunk.source_url,
-            "canonical_url": chunk.canonical_url,
-            "domain": chunk.domain,
-            "path": chunk.path,
-            
-            # Content metadata
-            "page_title": chunk.page_title,
-            "title_hierarchy": chunk.title_hierarchy,
-            "lang": chunk.lang,
-            "content_type": chunk.content_type,
-            
-            # Chunk positioning
-            "chunk_index": chunk.chunk_index,
-            "total_chunks": chunk.total_chunks,
-            "chunk_char_start": getattr(chunk, 'chunk_char_start', None),
-            "chunk_char_end": getattr(chunk, 'chunk_char_end', None),
-            "tokens": getattr(chunk, 'tokens', 0),
-            
-            # Content hashing for deduplication
-            "content_sha1": getattr(chunk, 'content_sha1', ''),
-            "simhash": getattr(chunk, 'simhash', ''),
-            
-            # Quality and type
-            "is_low_signal": chunk.is_low_signal,
-            "low_signal_reason": getattr(chunk, 'low_signal_reason', ''),
-            "section_type": getattr(chunk, 'section_type', 'content'),
-            "retrieval_weight": getattr(chunk, 'retrieval_weight', 1.0),
-            "source_confidence": getattr(chunk, 'source_confidence', 1.0),
-            
-            # Content features for UI/ranking
-            "headings": getattr(chunk, 'headings', []),
-            "has_code": getattr(chunk, 'has_code', False),
-            "has_table": getattr(chunk, 'has_table', False),
-            "has_list": getattr(chunk, 'has_list', False),
-            "links_out": getattr(chunk, 'links_out', 0),
-            
-            # Generic metadata
-            "category": chunk.category,
-            "subcategory": chunk.subcategory,
-            "tags": chunk.tags,
-            "metadata": chunk.metadata,
-            
-            # Timestamps (convert to ISO format for JSON serialization)
-            "crawl_ts": self._serialize_datetime(getattr(chunk, 'crawl_ts', None)),
-            "published_at": self._serialize_datetime(getattr(chunk, 'published_at', None)),
-            "modified_at": self._serialize_datetime(getattr(chunk, 'modified_at', None)),
-        }
+        # Use chunk.to_dict() to get ALL fields properly
+        record = chunk.to_dict()
+        
+        # Remove embedding from chunks file (goes to separate file)
+        if 'embedding' in record:
+            del record['embedding']
+        
+        # Ensure timestamps are serialized properly
+        for field in ['crawl_ts', 'published_at', 'modified_at']:
+            if field in record:
+                record[field] = self._serialize_datetime(record[field])
+        
+        return record
     
     def _build_embed_record(self, chunk: Chunk) -> dict:
-        """Build embedding record with ID and vector only"""
+        """Build embedding record with ID, vector, model, and dimensions"""
         return {
             "id": chunk.id,
-            "embedding": chunk.embedding
+            "embedding": chunk.embedding,
+            "embedding_model": getattr(chunk, 'embedding_model', None),
+            "embedding_dim": getattr(chunk, 'embedding_dim', None)
         }
 
     def _classify_chunk(self, chunk: Chunk) -> Tuple[str, str]:
