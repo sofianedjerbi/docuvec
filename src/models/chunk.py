@@ -201,6 +201,12 @@ class Chunk:
     certification: str = ""  # Legacy field
     provider: str = ""  # Legacy field
     resource_type: str = "document"  # Legacy field
+    section_type: str = "content"  # Legacy field ("content" | "structured" | "simple")
+    
+    @property
+    def content_type(self) -> str:
+        """Backward compatibility property that returns format"""
+        return self.format
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -308,6 +314,7 @@ class Chunk:
             "certification": self.certification,
             "provider": self.provider,
             "resource_type": self.resource_type,
+            "section_type": self.section_type,
         }
         
         # Add embedding if present

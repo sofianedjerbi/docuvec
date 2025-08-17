@@ -112,7 +112,8 @@ class ETLOrchestrator:
             self.logger.error(f"Failed to process source {source.id}: {e}")
             self.logger.error(f"  URL: {source.url}")
             import traceback
-            self.logger.debug(f"  Stack trace: {traceback.format_exc()}")
+            # Always show stack trace for better debugging
+            self.logger.error(f"  Stack trace:\n{traceback.format_exc()}")
             return {"success": False, "chunk_count": 0, "embed_count": 0, "reason": "exception", "error": str(e)}
 
     def process_source(self, source: Source) -> List[Chunk]:
