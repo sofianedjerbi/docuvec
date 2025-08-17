@@ -5,6 +5,8 @@ from typing import List, Optional, Dict, Any
 
 import tiktoken
 
+from datetime import datetime
+
 from src.models import Source, Chunk
 from src.core.logger import setup_logger
 from src.services.text_processor import TextProcessor
@@ -161,6 +163,7 @@ class TextChunker:
                         tokens=token_count,
                         content_sha1=content_sha1,
                         simhash=simhash,
+                        crawl_ts=datetime.now(),
                         service=service,
                         domain_exam=domain_exam,
                         certification=certification,
@@ -216,6 +219,7 @@ class TextChunker:
                 tokens=token_count,
                 content_sha1=content_sha1,
                 simhash=simhash,
+                crawl_ts=datetime.now(),
                 service=service,
                 domain_exam=domain_exam,
                 certification=certification,
