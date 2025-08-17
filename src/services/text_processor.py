@@ -28,10 +28,10 @@ class TextProcessor:
     
     # Content quality thresholds
     MIN_WORD_COUNT = 50  # Documents with fewer words are likely navigation/headers
-    MIN_UNIQUE_WORDS = 20  # Too few unique words indicates repetitive content
-    MAX_REPETITION_RATIO = 0.3  # If >30% of text is repetitions, it's low quality
-    MIN_AVG_WORD_LENGTH = 2.5  # Very short average word length indicates poor content
+    MIN_SENTENCE_COUNT = 3  # Real content should have multiple sentences
+    MIN_AVG_SENTENCE_LENGTH = 5  # Sentences should have substance
     MAX_URL_DENSITY = 0.15  # If >15% of content is URLs, it's likely just links
+    MAX_SPECIAL_CHAR_RATIO = 0.4  # Too many special characters indicate non-prose content
     
     def __init__(self):
         self.logger = setup_logger(self.__class__.__name__)
@@ -144,22 +144,21 @@ class TextProcessor:
         if word_count < self.MIN_WORD_COUNT:
             return text, True, f"Too short: only {word_count} words (min: {self.MIN_WORD_COUNT})"
         
-        # 2. Check unique word ratio
-        unique_words = len(set(word.lower() for word in words))
-        if unique_words < self.MIN_UNIQUE_WORDS:
-            return text, True, f"Too few unique words: {unique_words} (min: {self.MIN_UNIQUE_WORDS})"
+        # 2. Check sentence structure
+        # Simple sentence detection (periods, exclamations, questions)
+        sentences = re.split(r'[.!?]+', text)
+        sentences = [s.strip() for s in sentences if s.strip()]
+        sentence_count = len(sentences)
         
-        # 3. Check repetition ratio
-        repetition_ratio = 1 - (unique_words / word_count)
-        if repetition_ratio > self.MAX_REPETITION_RATIO:
-            return text, True, f"Too repetitive: {repetition_ratio:.1%} repetition"
+        if sentence_count < self.MIN_SENTENCE_COUNT:
+            return text, True, f"Too few sentences: {sentence_count} (min: {self.MIN_SENTENCE_COUNT})"
         
-        # 4. Check average word length (indicates substance)
-        avg_word_length = sum(len(word) for word in words) / word_count if word_count > 0 else 0
-        if avg_word_length < self.MIN_AVG_WORD_LENGTH:
-            return text, True, f"Content too simple: avg word length {avg_word_length:.1f}"
+        # 3. Check average sentence length
+        avg_sentence_length = word_count / sentence_count if sentence_count > 0 else 0
+        if avg_sentence_length < self.MIN_AVG_SENTENCE_LENGTH:
+            return text, True, f"Sentences too short: avg {avg_sentence_length:.1f} words"
         
-        # 5. Check URL density
+        # 4. Check URL density
         url_count = len(re.findall(r"https?://\S+", text))
         if word_count > 0:
             # Count URL words (approximate)
@@ -168,14 +167,31 @@ class TextProcessor:
             if url_density > self.MAX_URL_DENSITY:
                 return text, True, f"Too many URLs: {url_density:.1%} of content is links"
         
-        # 6. Check for table of contents patterns
-        if re.search(r"(\.\s*){3,}\d+", text):  # ... page patterns
+        # 5. Check for table of contents patterns
+        toc_pattern = re.search(r"(\.\s*){3,}\d+", text)  # ... page patterns
+        if toc_pattern:
             return text, True, "Table of contents pattern detected"
         
-        # 7. Check if it's mostly numbers/bullets (like a plain list)
+        # 6. Check for navigation/menu patterns (many short lines)
+        lines = text.split('\n')
+        if len(lines) > 10:
+            short_lines = sum(1 for line in lines if len(line.split()) < 3)
+            if short_lines / len(lines) > 0.7:
+                return text, True, f"Navigation/menu pattern: {short_lines}/{len(lines)} short lines"
+        
+        # 7. Check special character ratio (but be lenient for technical content)
         non_alpha_ratio = len(re.findall(r'[^a-zA-Z\s]', text)) / len(text) if len(text) > 0 else 0
-        if non_alpha_ratio > 0.4:
-            return text, True, f"Too many non-alphabetic characters: {non_alpha_ratio:.1%}"
+        if non_alpha_ratio > self.MAX_SPECIAL_CHAR_RATIO:
+            # Additional check: if it has code blocks or technical content, allow it
+            has_code = bool(re.search(r'```|<code>|function|class|def|import', text, re.IGNORECASE))
+            if not has_code:
+                return text, True, f"Too many special characters: {non_alpha_ratio:.1%}"
+        
+        # 8. Check if content is mostly boilerplate (copyright, legal, etc.)
+        boilerplate_keywords = ['copyright', 'all rights reserved', 'terms of service', 'privacy policy']
+        boilerplate_count = sum(1 for keyword in boilerplate_keywords if keyword in text.lower())
+        if boilerplate_count >= 3 and word_count < 200:
+            return text, True, "Mostly boilerplate content"
         
         return text, False, ""
     
