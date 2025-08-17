@@ -29,6 +29,7 @@ class TextChunker:
             overlap_tokens=overlap_tokens,
             min_tokens=min_tokens
         )
+        self.enricher = ChunkEnricher()  # Create instance for hash computation
     
     def _generate_chunk_id(self, source_id: str, chunk_index: int, chunk_text: str) -> str:
         """Generate stable chunk ID with content hash"""
@@ -147,8 +148,8 @@ class TextChunker:
                     token_count = len(self.tokenizer.encode(s_chunk.text))
                     
                     # Calculate content hashes for deduplication
-                    content_sha1 = ChunkEnricher.compute_content_hash(s_chunk.text)
-                    simhash = ChunkEnricher.compute_simhash(s_chunk.text)
+                    content_sha1 = self.enricher.compute_content_hash(s_chunk.text)
+                    simhash = self.enricher.compute_simhash(s_chunk.text)
                     
                     chunk = Chunk(
                         id=s_chunk.chunk_id,
@@ -202,8 +203,8 @@ class TextChunker:
             token_count = len(self.tokenizer.encode(chunk_text))
             
             # Calculate content hashes for deduplication
-            content_sha1 = ChunkEnricher.compute_content_hash(chunk_text)
-            simhash = ChunkEnricher.compute_simhash(chunk_text)
+            content_sha1 = self.enricher.compute_content_hash(chunk_text)
+            simhash = self.enricher.compute_simhash(chunk_text)
             
             chunk = Chunk(
                 id=chunk_id,
