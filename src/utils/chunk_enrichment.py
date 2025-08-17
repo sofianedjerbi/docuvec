@@ -7,15 +7,9 @@ from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 import json
 
-try:
-    import simhash as sh
-except ImportError:
-    sh = None
-
-try:
-    import langdetect
-except ImportError:
-    langdetect = None
+import simhash as sh
+import langdetect
+from dateutil import parser as date_parser
 
 
 class ChunkEnricher:
@@ -114,12 +108,11 @@ class ChunkEnricher:
     @staticmethod
     def compute_simhash(text: str) -> str:
         """Compute simhash for near-duplicate detection"""
-        if sh:
-            try:
-                return str(sh.Simhash(text).value)
-            except:
-                return ""
-        return ""
+        try:
+            return str(sh.Simhash(text).value)
+        except Exception as e:
+            # Return empty string if simhash fails
+            return ""
     
     @staticmethod
     def detect_language(text: str, html_lang: Optional[str] = None) -> str:
@@ -132,7 +125,7 @@ class ChunkEnricher:
                 return lang
         
         # Fallback to language detection
-        if langdetect and text:
+        if text:
             try:
                 return langdetect.detect(text[:500])  # Use first 500 chars
             except:
@@ -166,8 +159,7 @@ class ChunkEnricher:
                                 parsed_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
                             except:
                                 # Try other common formats
-                                from dateutil import parser
-                                parsed_date = parser.parse(date_str)
+                                parsed_date = date_parser.parse(date_str)
                             
                             if field_type == 'published' and not published:
                                 published = parsed_date

@@ -8,8 +8,6 @@ requests>=2.31.0
 tiktoken>=0.5.0
 pypdf>=3.17.0
 python-dotenv>=1.0.0
-
-# Optional but recommended for enhanced features
-simhash>=2.1.2          # Near-duplicate detection
-langdetect>=1.0.9       # Language detection
-python-dateutil>=2.8.2  # Date parsing
+simhash>=2.1.2
+langdetect>=1.0.9
+python-dateutil>=2.8.2
