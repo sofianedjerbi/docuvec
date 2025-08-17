@@ -55,9 +55,12 @@ class EmbeddingsGenerator:
             
             embeddings = self._generate_batch(texts)
             
-            # Assign embeddings to chunks
+            # Assign embeddings to chunks with model metadata
             for chunk, embedding in zip(batch, embeddings):
                 chunk.embedding = embedding
+                if embedding:
+                    chunk.embedding_model = self.model
+                    chunk.embedding_dim = len(embedding)
         
         # Filter out chunks without embeddings
         valid_chunks = [chunk for chunk in chunks if chunk.embedding is not None]

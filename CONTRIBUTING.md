@@ -353,7 +353,7 @@ This format ensures:
 
 ### Enhanced Chunk Fields
 
-#### Core Identity
+#### Complete Example Chunk
 ```json
 {
   "id": "doc_abc123#00001-7d865e95",
@@ -463,6 +463,18 @@ The chunk format has been enhanced with the following improvements:
 - Counts outbound links
 - Enables feature-based filtering and ranking
 
+#### 8. **Enhanced Embedding Support**
+- **embedding**: Vector for ANN index (Approximate Nearest Neighbor)
+- **embedding_model**: Track which model generated the vectors
+- **embedding_dim**: Dimension count for proper index configuration
+- Enables efficient vector search and model versioning
+
+#### 9. **Improved Document Structure**
+- **doc_type**: Clearer than `format` for document type identification
+- **section_path**: Complete section hierarchy (e.g., ["Overview", "Eligibility", "Requirements"])
+- **tokens**: Pre-computed for efficient context window management
+- Better navigation and more granular content targeting
+
 ### Field Descriptions
 
 #### Core Fields
@@ -471,15 +483,16 @@ The chunk format has been enhanced with the following improvements:
 | `id` | string | Unique chunk identifier (format: `doc_id#index-hash`) |
 | `doc_id` | string | Stable document ID from canonical URL hash |
 | `text` | string | The actual chunk content (cleaned and processed) |
-| `embedding` | float[] | Vector embedding (1536D for small, 3072D for large) |
+| `embedding` | float[] | Vector embedding for ANN index |
+| `embedding_model` | string | Model used (e.g., text-embedding-3-small) |
+| `embedding_dim` | integer | Embedding dimensions (1536 or 3072) |
+| `tokens` | integer | Token count for context budgets |
 
 #### Versioning & Auditability
 | Field | Type | Description |
 |-------|------|-------------|
 | `schema_version` | string | Schema version for migrations |
 | `pipeline_version` | string | ETL pipeline version hash |
-| `embedding_model` | string | Model used for vector generation |
-| `embedding_dim` | integer | Embedding dimensions (1536 or 3072) |
 | `tokenizer` | string | Tokenizer used (e.g., `cl100k_base`) |
 
 #### URL & Navigation
@@ -497,14 +510,15 @@ The chunk format has been enhanced with the following improvements:
 | Field | Type | Description |
 |-------|------|-------------|
 | `page_title` | string | Full hierarchical title string |
-| `title_hierarchy` | string[] | Title components as array |
+| `title_hierarchy` | string[] | Title components as array (limited) |
+| `section_path` | string[] | Complete section hierarchy path |
 | `lang` | string | ISO 639-1 language code |
 | `language_confidence` | float | Confidence in language detection (0.0-1.0) |
 | `format` | string | Content format: `html\|pdf\|docx\|markdown\|txt` |
+| `doc_type` | string | Document type (clearer than format) |
 | `modality` | string | Content type: `text\|table\|code\|equation` |
 | `source_type` | string | Source category: `official_docs\|academic\|news\|community` |
 | `word_count` | integer | Word count for snippet generation |
-| `tokens` | integer | Token count for context limits |
 
 #### Timestamps & Hashing
 | Field | Type | Description |

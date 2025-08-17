@@ -113,6 +113,7 @@ class Chunk:
     # === CONTENT === (Single Responsibility: Content storage)
     modality: str = "text"  # Use Modality enum values
     format: str = "html"  # Use Format enum values
+    doc_type: str = "html"  # Clearer document type (html, pdf, markdown, etc.)
     lang: str = "en"
     language_confidence: float = 0.99
     text: str = ""
@@ -122,6 +123,7 @@ class Chunk:
     # === STRUCTURE & POSITION === (Single Responsibility: Document structure)
     page_title: str = ""
     title_hierarchy: List[str] = field(default_factory=list)
+    section_path: List[str] = field(default_factory=list)  # Granular section hierarchy
     section_id: Optional[str] = None
     parent_section_id: Optional[str] = None
     headings: List[str] = field(default_factory=list)
@@ -227,6 +229,7 @@ class Chunk:
             # Content
             "modality": self.modality,
             "format": self.format,
+            "doc_type": self.doc_type,
             "lang": self.lang,
             "language_confidence": self.language_confidence,
             "text": self.text,
@@ -236,6 +239,7 @@ class Chunk:
             # Structure & Position
             "page_title": self.page_title,
             "title_hierarchy": self.title_hierarchy,
+            "section_path": self.section_path,
             "section_id": self.section_id,
             "parent_section_id": self.parent_section_id,
             "headings": self.headings,

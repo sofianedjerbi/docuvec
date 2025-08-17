@@ -157,10 +157,12 @@ class TextChunker:
                         # Content metadata
                         modality=modality,
                         format=content_type,
+                        doc_type=content_type,  # Use same value for clearer naming
                         lang=language,
                         language_confidence=language_confidence,
                         page_title=s_chunk.hierarchical_title,
                         title_hierarchy=s_chunk.headings[:3],  # Limit to 3 levels
+                        section_path=s_chunk.headings if hasattr(s_chunk, 'headings') else [],  # Full hierarchy
                         
                         # Timestamps
                         published_at=published_at,
@@ -268,10 +270,12 @@ class TextChunker:
                 # Content metadata
                 modality=modality,
                 format=content_type,
+                doc_type=content_type,  # Use same value for clearer naming
                 lang=language,
                 language_confidence=language_confidence,
                 page_title=source.title,
                 title_hierarchy=[source.title],
+                section_path=[],  # Simple chunks don't have section hierarchy
                 
                 # Timestamps
                 published_at=published_at,
