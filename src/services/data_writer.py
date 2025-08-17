@@ -109,21 +109,26 @@ class DataWriter:
                 
                 for chunk in type_chunks:
                     # Chunk record (text and metadata)
-                    chunk_record = {
-                        "id": chunk.id,
-                        "text": chunk.text,
-                        "source_url": chunk.source_url,
-                        "page_title": chunk.page_title,
-                        "service": chunk.service,
-                        "domain_exam": chunk.domain_exam,
-                        "certification": chunk.certification,
-                        "provider": chunk.provider,
-                        "resource_type": chunk.resource_type,
-                        "chunk_index": chunk.chunk_index,
-                        "total_chunks": chunk.total_chunks,
-                        "is_low_signal": chunk.is_low_signal,
-                        "section_type": chunk.section_type
-                    }
+                    # Use to_dict() if available, otherwise fall back to manual mapping
+                    if hasattr(chunk, 'to_dict'):
+                        chunk_record = chunk.to_dict()
+                    else:
+                        # Backward compatibility for old Chunk model
+                        chunk_record = {
+                            "id": chunk.id,
+                            "text": chunk.text,
+                            "source_url": chunk.source_url,
+                            "page_title": chunk.page_title,
+                            "service": chunk.service,
+                            "domain_exam": chunk.domain_exam,
+                            "certification": chunk.certification,
+                            "provider": chunk.provider,
+                            "resource_type": chunk.resource_type,
+                            "chunk_index": chunk.chunk_index,
+                            "total_chunks": chunk.total_chunks,
+                            "is_low_signal": chunk.is_low_signal,
+                            "section_type": getattr(chunk, 'section_type', 'content')
+                        }
                     chunk_records.append(chunk_record)
                     
                     # Embedding record (vector only)
