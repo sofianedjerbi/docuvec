@@ -162,7 +162,7 @@ class TextChunker:
                         page_title=s_chunk.hierarchical_title,  # Use hierarchical title
                         title_hierarchy=s_chunk.headings if hasattr(s_chunk, 'headings') else [source.title],
                         lang=language,
-                        content_type=detected_content_type,
+                        format=detected_content_type,  # Map old field name to new
                         tokens=token_count,
                         content_sha1=content_sha1,
                         simhash=simhash,
@@ -217,7 +217,7 @@ class TextChunker:
                 page_title=source.title,
                 title_hierarchy=[source.title],
                 lang=language,
-                content_type=detected_content_type,
+                format=detected_content_type,  # Map old field name to new
                 tokens=token_count,
                 content_sha1=content_sha1,
                 simhash=simhash,
