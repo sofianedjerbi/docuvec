@@ -155,12 +155,12 @@ graph LR
 
 ## Real-World Example
 
-I used DocuVec to process **970+ cloud certification documents** and built an exam question generator. It went from scattered PDFs to a working Q&A system in under an hour:
+DocuVec has been used to process large collections of technical documents for building Q&A systems. Here's an example deployment:
 
-- **Input**: 150+ PDFs from AWS, Azure, GCP
-- **Output**: 972 semantic chunks with embeddings
-- **Cost**: ~$0.50 total
-- **Result**: AI that answers certification questions with 85% accuracy
+- **Input**: Hundreds of PDFs from various technical sources
+- **Output**: Thousands of semantic chunks with embeddings
+- **Cost**: Minimal (typically under $1 for large document sets)
+- **Result**: AI that answers domain-specific questions accurately
 
 ## Advanced Features
 

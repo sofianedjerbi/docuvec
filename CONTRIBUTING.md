@@ -1,6 +1,6 @@
-# Cloud Certification ETL Pipeline - Clean Architecture
+# DocuVec - Clean Architecture Documentation
 
-A modular Python ETL pipeline that processes cloud certification documentation with advanced text cleaning and generates embeddings for RAG systems.
+A modular Python ETL pipeline that processes any documentation with advanced text cleaning and generates embeddings for RAG systems.
 
 ## Features
 
@@ -72,14 +72,14 @@ main.py                    # CLI entry point
 3. **Prepare sources with explicit types:**
    ```yaml
    # sources.yaml must include 'type' field for each source
-   - id: "exam-guide-clf-c02"
+   - id: "doc-001"
      url: "https://..."
-     title: "AWS CLF-C02 Exam Guide"
+     title: "Technical Documentation"
      tags:
-       type: "cert"         # REQUIRED: 'cert' or 'service'
-       provider: "AWS"      # REQUIRED: 'AWS', 'Azure', or 'GCP'
-       certification: "CLF-C02"
-       service: []          # For service docs: ["EC2"], ["S3"], etc.
+       type: "document"     # Type of document
+       category: "technical" # Category for organization
+       topic: "api"        # Specific topic
+       language: "en"      # Language code
    ```
 
 4. **Run the pipeline:**
@@ -112,50 +112,42 @@ The output path for each chunk is determined by explicit fields in `sources.yaml
 
 ```yaml
 tags:
-  type: "cert"         # → {provider}/cert/{certification}.jsonl
-  type: "service"      # → {provider}/service/{service_name}.jsonl
-  provider: "AWS"      # → aws/...
-  certification: "CLF-C02"  # Used for cert filename
-  service: ["EC2"]     # Used for service filename
+  type: "document"     # → {category}/documents/{doc_id}.jsonl
+  type: "service"      # → {category}/service/{service_name}.jsonl
+  category: "technical" # → technical/...
+  topic: "api"         # Used for categorization
+  service: ["auth"]    # Used for service filename
 ```
 
 **Path Logic (No Guessing!):**
-- `type: "cert"` + `provider: "AWS"` + `certification: "CLF-C02"` → `aws/cert/clf-c02.jsonl`
-- `type: "service"` + `provider: "AWS"` + `service: ["EC2"]` → `aws/service/ec2.jsonl`
+- `type: "document"` + `category: "technical"` → `technical/documents/{doc_id}.jsonl`
+- `type: "service"` + `category: "api"` → `api/service/{service_name}.jsonl`
 
 ### Organized Directory Structure
 ```
 data/
 ├── chunks/
-│   ├── aws/
-│   │   ├── cert/
-│   │   │   ├── clf-c02.jsonl    # Cloud Practitioner
-│   │   │   ├── saa-c03.jsonl    # Solutions Architect
-│   │   │   ├── dva-c02.jsonl    # Developer Associate
-│   │   │   ├── soa-c02.jsonl    # SysOps Administrator
-│   │   │   └── sap-c02.jsonl    # Solutions Architect Pro
+│   ├── technical/              # Category: Technical docs
+│   │   ├── documents/
+│   │   │   ├── api-guide.jsonl
+│   │   │   ├── user-manual.jsonl
+│   │   │   └── reference.jsonl
 │   │   └── service/
-│   │       ├── ec2.jsonl        # EC2 documentation
-│   │       ├── s3.jsonl         # S3 documentation
-│   │       ├── lambda.jsonl     # Lambda documentation
-│   │       ├── vpc.jsonl        # VPC documentation
-│   │       └── iam.jsonl        # IAM documentation
-│   ├── azure/
-│   │   ├── cert/
-│   │   │   ├── az-900.jsonl     # Azure Fundamentals
-│   │   │   ├── az-104.jsonl     # Azure Administrator
-│   │   │   └── az-305.jsonl     # Azure Solutions Architect
-│   │   └── service/
-│   │       ├── vm.jsonl         # Virtual Machines
-│   │       └── storage.jsonl    # Azure Storage
-│   └── gcp/
-│       ├── cert/
-│       │   ├── ace.jsonl        # Associate Cloud Engineer
-│       │   └── pca.jsonl        # Professional Cloud Architect
-│       └── service/
-│           ├── compute-engine.jsonl
-│           ├── cloud-storage.jsonl
-│           └── gke.jsonl
+│   │       ├── auth.jsonl
+│   │       ├── database.jsonl
+│   │       └── storage.jsonl
+│   ├── medical/                # Category: Medical docs
+│   │   ├── documents/
+│   │   │   ├── protocols.jsonl
+│   │   │   └── guidelines.jsonl
+│   │   └── research/
+│   │       └── papers.jsonl
+│   └── legal/                  # Category: Legal docs
+│       ├── documents/
+│       │   ├── contracts.jsonl
+│       │   └── policies.jsonl
+│       └── compliance/
+│           └── regulations.jsonl
 ├── embeds/
 │   └── [same structure as chunks/]
 └── summary.json
