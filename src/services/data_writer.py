@@ -185,9 +185,9 @@ class DataWriter:
             embeds_file = self.embeds_dir / category / resource_type / filename
             self._write_jsonl(embeds_file, embed_records)
         
-        self.logger.info(f"✅ Wrote {len(chunk_records)} chunks to {chunks_file}")
+        self.logger.info(f"  Wrote {len(chunk_records)} chunks to {chunks_file}")
         if embeds_file:
-            self.logger.info(f"✅ Wrote {len(embed_records)} embeddings to {embeds_file}")
+            self.logger.info(f"  Wrote {len(embed_records)} embeddings to {embeds_file}")
         
         return {
             "chunks_file": str(chunks_file),

@@ -71,21 +71,21 @@ class ETLOrchestrator:
             # Fetch content
             content = self.content_fetcher.fetch(source)
             if not content:
-                self.logger.warning(f"❌ No content fetched for {source.id}")
-                self.logger.warning(f"   URL: {source.url}")
+                self.logger.warning(f"No content fetched for {source.id}")
+                self.logger.warning(f"  URL: {source.url}")
                 return {"success": False, "chunk_count": 0, "embed_count": 0, "reason": "no_content"}
             
             # Create chunks
             chunks = self.text_chunker.create_chunks(source, content)
             if not chunks:
-                self.logger.warning(f"❌ No chunks created for {source.id}")
+                self.logger.warning(f"No chunks created for {source.id}")
                 return {"success": False, "chunk_count": 0, "embed_count": 0, "reason": "no_chunks"}
             
             # Validate chunks immediately
             original_count = len(chunks)
             chunks = self.chunk_validator.validate_batch(chunks)
             if not chunks:
-                self.logger.warning(f"❌ No valid chunks after validation for {source.id}")
+                self.logger.warning(f"No valid chunks after validation for {source.id}")
                 return {"success": False, "chunk_count": 0, "embed_count": 0, "reason": "validation_failed"}
             
             # Generate embeddings immediately
@@ -109,10 +109,10 @@ class ETLOrchestrator:
             }
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to process source {source.id}: {e}")
-            self.logger.error(f"   URL: {source.url}")
+            self.logger.error(f"Failed to process source {source.id}: {e}")
+            self.logger.error(f"  URL: {source.url}")
             import traceback
-            self.logger.debug(f"   Stack trace: {traceback.format_exc()}")
+            self.logger.debug(f"  Stack trace: {traceback.format_exc()}")
             return {"success": False, "chunk_count": 0, "embed_count": 0, "reason": "exception", "error": str(e)}
 
     def process_source(self, source: Source) -> List[Chunk]:
@@ -128,32 +128,32 @@ class ETLOrchestrator:
             # Fetch content
             content = self.content_fetcher.fetch(source)
             if not content:
-                self.logger.warning(f"❌ No content fetched for {source.id}")
-                self.logger.warning(f"   URL: {source.url}")
-                self.logger.warning(f"   Check if URL is accessible and contains extractable content")
+                self.logger.warning(f"No content fetched for {source.id}")
+                self.logger.warning(f"  URL: {source.url}")
+                self.logger.warning(f"  Check if URL is accessible and contains extractable content")
                 return []
             
             # Log content info for debugging
             content_length = len(content)
-            self.logger.debug(f"✓ Fetched {content_length:,} characters from {source.id}")
+            self.logger.debug(f"Fetched {content_length:,} characters from {source.id}")
             
             # Create chunks
             chunks = self.text_chunker.create_chunks(source, content)
             if not chunks:
-                self.logger.warning(f"❌ No chunks created for {source.id}")
-                self.logger.warning(f"   Content length: {content_length:,} characters")
-                self.logger.warning(f"   This might indicate content is too short, low-quality, or processing failed")
+                self.logger.warning(f"No chunks created for {source.id}")
+                self.logger.warning(f"  Content length: {content_length:,} characters")
+                self.logger.warning(f"  This might indicate content is too short, low-quality, or processing failed")
                 return []
             
-            self.logger.debug(f"✓ Created {len(chunks)} chunks from {source.id}")
+            self.logger.debug(f"Created {len(chunks)} chunks from {source.id}")
             return chunks
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to process source {source.id}: {e}")
-            self.logger.error(f"   URL: {source.url}")
-            self.logger.error(f"   Error type: {type(e).__name__}")
+            self.logger.error(f"Failed to process source {source.id}: {e}")
+            self.logger.error(f"  URL: {source.url}")
+            self.logger.error(f"  Error type: {type(e).__name__}")
             import traceback
-            self.logger.debug(f"   Stack trace: {traceback.format_exc()}")
+            self.logger.debug(f"  Stack trace: {traceback.format_exc()}")
             return []
     
     def run_streaming(self):
@@ -184,7 +184,7 @@ class ETLOrchestrator:
             
             # Process each source with immediate writes
             for i, source in enumerate(sources, 1):
-                self.logger.info(f"\n🔄 Processing source {i}/{len(sources)}: {source.id}")
+                self.logger.info(f"\n[{i}/{len(sources)}] Processing: {source.id}")
                 
                 result = self.process_source_streaming(source)
                 
@@ -194,34 +194,47 @@ class ETLOrchestrator:
                     stats["total_embeddings"] += result["embed_count"]
                     stats["files_written"].extend([f for f in result["files"].values() if f])
                     
-                    self.logger.info(f"✅ {source.id}: {result['chunk_count']} chunks, {result['embed_count']} embeddings")
+                    self.logger.info(f"  SUCCESS: {result['chunk_count']} chunks, {result['embed_count']} embeddings")
                     if result.get("validation_dropped", 0) > 0:
-                        self.logger.info(f"   ⚠️  Dropped {result['validation_dropped']} invalid chunks")
+                        self.logger.info(f"  NOTE: Dropped {result['validation_dropped']} invalid chunks")
                 else:
                     stats["failed_sources"] += 1
                     reason = result.get("reason", "unknown")
                     stats["failed_reasons"][reason] = stats["failed_reasons"].get(reason, 0) + 1
                     
-                    self.logger.warning(f"❌ {source.id}: {reason}")
+                    self.logger.warning(f"  FAILED: {reason}")
             
             # Final summary
-            self.logger.info("\n" + "="*50)
-            self.logger.info("🎉 Streaming ETL Pipeline Completed!")
-            self.logger.info(f"📊 Final Statistics:")
-            self.logger.info(f"   ✅ Successful sources: {stats['successful_sources']}/{stats['total_sources']}")
-            self.logger.info(f"   ❌ Failed sources: {stats['failed_sources']}")
-            self.logger.info(f"   📝 Total chunks written: {stats['total_chunks']:,}")
-            self.logger.info(f"   🔗 Total embeddings: {stats['total_embeddings']:,}")
-            self.logger.info(f"   📁 Files created: {len(stats['files_written'])}")
+            self.logger.info("\n" + "="*70)
+            self.logger.info(" STREAMING ETL PIPELINE COMPLETED ".center(70))
+            self.logger.info("="*70)
+            
+            self.logger.info("\nPROCESSING SUMMARY")
+            self.logger.info("-" * 35)
+            self.logger.info(f"  Total Sources:     {stats['total_sources']:>6}")
+            self.logger.info(f"  Successful:        {stats['successful_sources']:>6}")
+            self.logger.info(f"  Failed:            {stats['failed_sources']:>6}")
+            success_rate = (stats['successful_sources'] / stats['total_sources']) * 100 if stats['total_sources'] > 0 else 0
+            self.logger.info(f"  Success Rate:      {success_rate:>5.1f}%")
+            
+            self.logger.info("\nOUTPUT STATISTICS")
+            self.logger.info("-" * 35)
+            self.logger.info(f"  Chunks Written:    {stats['total_chunks']:>6,}")
+            self.logger.info(f"  Embeddings:        {stats['total_embeddings']:>6,}")
+            self.logger.info(f"  Files Created:     {len(stats['files_written']):>6}")
+            
+            if stats['total_chunks'] > 0:
+                avg_chunks = stats['total_chunks'] / stats['successful_sources'] if stats['successful_sources'] > 0 else 0
+                self.logger.info(f"  Avg Chunks/Source: {avg_chunks:>6.1f}")
             
             if stats["failed_reasons"]:
-                self.logger.info(f"   🔍 Failure breakdown:")
-                for reason, count in stats["failed_reasons"].items():
-                    self.logger.info(f"      {reason}: {count}")
+                self.logger.info("\nFAILURE ANALYSIS")
+                self.logger.info("-" * 35)
+                for reason, count in sorted(stats["failed_reasons"].items(), key=lambda x: x[1], reverse=True):
+                    reason_formatted = reason.replace('_', ' ').title()
+                    self.logger.info(f"  {reason_formatted:<20} {count:>3}")
             
-            success_rate = (stats['successful_sources'] / stats['total_sources']) * 100
-            self.logger.info(f"   📈 Success rate: {success_rate:.1f}%")
-            self.logger.info("="*50)
+            self.logger.info("\n" + "="*70)
             
             return stats
             
