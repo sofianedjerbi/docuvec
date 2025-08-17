@@ -118,9 +118,16 @@ class TextChunker:
                     
                     chunk = Chunk(
                         id=s_chunk.chunk_id,
+                        doc_id=source.id,
                         text=s_chunk.text,
                         source_url=source.url,
+                        canonical_url=source.url,
+                        domain=source.url.split("//")[1].split("/")[0] if "//" in source.url else source.url.split("/")[0],
+                        path="/" + "/".join(source.url.split("/")[3:]) if len(source.url.split("/")) > 3 else "/",
                         page_title=s_chunk.hierarchical_title,  # Use hierarchical title
+                        title_hierarchy=s_chunk.headings if hasattr(s_chunk, 'headings') else [source.title],
+                        lang="en",
+                        content_type="html",
                         service=service,
                         domain_exam=domain_exam,
                         certification=certification,
@@ -156,9 +163,16 @@ class TextChunker:
             
             chunk = Chunk(
                 id=chunk_id,
+                doc_id=source.id,
                 text=chunk_text,
                 source_url=source.url,
+                canonical_url=source.url,
+                domain=source.url.split("//")[1].split("/")[0] if "//" in source.url else source.url.split("/")[0],
+                path="/" + "/".join(source.url.split("/")[3:]) if len(source.url.split("/")) > 3 else "/",
                 page_title=source.title,
+                title_hierarchy=[source.title],
+                lang="en",
+                content_type="html",
                 service=service,
                 domain_exam=domain_exam,
                 certification=certification,
