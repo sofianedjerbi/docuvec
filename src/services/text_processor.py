@@ -94,6 +94,82 @@ class TextProcessor:
         
         return text
     
+    def preserve_technical_content(self, text: str) -> tuple:
+        """Preserve URLs and technical identifiers before processing
+        
+        Returns:
+            Tuple of (processed_text, preserved_items)
+        """
+        preserved = {}
+        counter = 0
+        
+        # Preserve URLs (http, https, ftp, s3, etc.)
+        url_pattern = r'(?:https?|ftp|s3|ssh|git)://[^\s<>"{}|\\^`\[\]]+'
+        matches = list(re.finditer(url_pattern, text))
+        for match in reversed(matches):  # Process from end to maintain positions
+            placeholder = f'__PRESERVED_URL_{counter}__'
+            preserved[placeholder] = match.group(0)
+            text = text[:match.start()] + placeholder + text[match.end():]
+            counter += 1
+        
+        # Preserve AWS S3 bucket URLs and ARNs
+        aws_patterns = [
+            r'\b[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9]\.s3[\.-][a-z0-9\-]+\.amazonaws\.com(?:/[^\s]*)?',
+            r'\barn:[a-z0-9\-]+:[a-z0-9\-]+:[a-z0-9\-]*:[0-9]*:[a-zA-Z0-9\-_:/]*',
+            r's3://[a-z0-9][a-z0-9\-\.]{1,61}[a-z0-9](?:/[^\s]*)?'
+        ]
+        
+        for pattern in aws_patterns:
+            matches = list(re.finditer(pattern, text))
+            for match in reversed(matches):
+                placeholder = f'__PRESERVED_AWS_{counter}__'
+                preserved[placeholder] = match.group(0)
+                text = text[:match.start()] + placeholder + text[match.end():]
+                counter += 1
+        
+        # Preserve email addresses
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        matches = list(re.finditer(email_pattern, text))
+        for match in reversed(matches):
+            placeholder = f'__PRESERVED_EMAIL_{counter}__'
+            preserved[placeholder] = match.group(0)
+            text = text[:match.start()] + placeholder + text[match.end():]
+            counter += 1
+        
+        # Preserve file paths
+        path_patterns = [
+            r'(?:/[a-zA-Z0-9_\-\.]+)+/?',  # Unix paths
+            r'[A-Z]:\\(?:[a-zA-Z0-9_\-\. ]+\\)*[a-zA-Z0-9_\-\. ]*'  # Windows paths
+        ]
+        
+        for pattern in path_patterns:
+            matches = list(re.finditer(pattern, text))
+            for match in reversed(matches):
+                # Only preserve if it looks like a real path (has at least 2 segments)
+                if match.group(0).count('/') >= 2 or match.group(0).count('\\') >= 1:
+                    placeholder = f'__PRESERVED_PATH_{counter}__'
+                    preserved[placeholder] = match.group(0)
+                    text = text[:match.start()] + placeholder + text[match.end():]
+                    counter += 1
+        
+        # Preserve technical identifiers (kebab-case like amzn-s3-bucket)
+        # Only preserve if it has 3+ segments to avoid over-matching
+        kebab_pattern = r'\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b'
+        matches = list(re.finditer(kebab_pattern, text))
+        for match in reversed(matches):
+            placeholder = f'__PRESERVED_KEBAB_{counter}__'
+            preserved[placeholder] = match.group(0)
+            text = text[:match.start()] + placeholder + text[match.end():]
+            counter += 1
+        
+        return text, preserved
+    
+    def restore_technical_content(self, text: str, preserved: dict) -> str:
+        """Restore preserved technical content"""
+        for placeholder, original in preserved.items():
+            text = text.replace(placeholder, original)
+        return text
+    
     def fix_hyphenation_and_splits(self, text: str) -> str:
         """Fix word splits, hyphenation, and spacing issues from PDFs and scraped content
         
@@ -108,15 +184,31 @@ class TextProcessor:
         text = text.replace('\u00AD', '')  # Soft hyphen
         text = text.replace('\u2027', '')  # Hyphenation point
         
-        # 2. Fix split words across line ends (word- \nword becomes word-word or wordword)
+        # 2. Fix split words across line ends (word- \nword becomes wordword)
         # For hyphenated words at line end, join them
-        text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', text)
+        # Only join if both parts are lowercase (avoid breaking URLs or identifiers)
+        text = re.sub(r'\b([a-z]+)-\s*\n\s*([a-z]+)\b', r'\1\2', text)
         
-        # 3. Fix incorrectly spaced hyphenated words (Single Sign- On -> Single Sign-On)
-        text = re.sub(r'(\w+)-\s+(\w+)', r'\1-\2', text)
+        # 3. Fix incorrectly spaced hyphenated words ONLY for known compounds
+        # Don't apply this broadly - it breaks technical identifiers
+        compound_words = [
+            ('cross', 'account'), ('multi', 'factor'), ('single', 'sign'),
+            ('read', 'only'), ('write', 'only'), ('built', 'in'),
+            ('plug', 'in'), ('add', 'on'), ('follow', 'up')
+        ]
+        for word1, word2 in compound_words:
+            text = re.sub(f'\\b{word1}\\s+-\\s+{word2}\\b', f'{word1}-{word2}', text, flags=re.IGNORECASE)
         
-        # 4. Fix words split with spaces (for example -> forexample issue)
-        # Common patterns from PDF extraction
+        # 4. Fix common word splits from OCR/PDF extraction
+        # Fix "youcan" -> "you can", "completelab" -> "complete lab"
+        text = re.sub(r'\b(you)(can)\b', r'\1 \2', text, flags=re.IGNORECASE)
+        text = re.sub(r'\b(complete)(lab)\b', r'\1 \2', text, flags=re.IGNORECASE)
+        text = re.sub(r'\b(can)(not)\b', r'\1 \2', text, flags=re.IGNORECASE)
+        
+        # Fix incorrectly joined words (common patterns)
+        text = re.sub(r'\b([a-z]+)([A-Z][a-z]+)\b', r'\1 \2', text)  # lowerUpper -> lower Upper
+        
+        # Preserve correctly spelled compound words
         text = re.sub(r'\b(for)\s+(example)\b', r'for example', text, flags=re.IGNORECASE)
         text = re.sub(r'\b(how)\s+(ever)\b', r'however', text, flags=re.IGNORECASE)
         text = re.sub(r'\b(there)\s+(fore)\b', r'therefore', text, flags=re.IGNORECASE)
@@ -137,20 +229,36 @@ class TextProcessor:
         text = text.replace('⸺', ' - ')  # Two-em dash
         text = text.replace('⸻', ' - ')  # Three-em dash
         
-        # 7. Fix spacing around punctuation
+        # 7. Fix spacing around punctuation (but preserve URLs and technical content)
         # Remove space before punctuation
-        text = re.sub(r'\s+([.,;:!?])', r'\1', text)
-        # Add space after punctuation if missing (except for decimals)
-        text = re.sub(r'([.,;:!?])(?=[A-Za-z])', r'\1 ', text)
-        # But don't add space after decimal points
+        text = re.sub(r'\s+([,;!?])', r'\1', text)  # Removed : and . to preserve URLs
+        # Add space after punctuation if missing (but not in URLs or numbers)
+        # Don't add spaces after colons if followed by // (URLs)
+        text = re.sub(r'(:)(?!//)(?=[A-Za-z])', r'\1 ', text)
+        # Don't add spaces after periods in domains or decimals
+        text = re.sub(r'(\.)(?![a-z]{2,4}\b|\d)(?=[A-Z])', r'\1 ', text)
+        # Fix commas and semicolons
+        text = re.sub(r'([,;])(?=[A-Za-z])', r'\1 ', text)
+        # Preserve decimal points
         text = re.sub(r'(\d+)\.\s+(\d+)', r'\1.\2', text)
         
-        # 8. Collapse multiple spaces (but preserve paragraph breaks)
+        # 8. Restore sentence breaks that may have been lost
+        # Add space after period if followed by capital letter (fix "end.Next" -> "end. Next")
+        text = re.sub(r'([.!?])([A-Z])', r'\1 \2', text)
+        
+        # 9. Normalize whitespace
+        # Collapse multiple spaces (but preserve paragraph breaks)
         text = re.sub(r'[ \t]+', ' ', text)
         text = re.sub(r' +\n', '\n', text)  # Remove trailing spaces
         text = re.sub(r'\n +', '\n', text)  # Remove leading spaces after newline
         
-        return text
+        # Ensure sentences are properly separated
+        text = re.sub(r'([.!?])\s*\n\s*([a-z])', r'\1 \2', text)  # Join if next line starts with lowercase
+        
+        # Clean up spacing issues from the fixes above
+        text = re.sub(r'\s+', ' ', text.replace('\n\n', '§PARA§')).replace('§PARA§', '\n\n')
+        
+        return text.strip()
     
     def normalize_text(self, text: str) -> str:
         """Normalize unicode and whitespace
@@ -396,6 +504,9 @@ class TextProcessor:
         if not text:
             return "", {"is_valid": False}
         
+        # Step 0: Preserve technical content before any processing
+        text, preserved_content = self.preserve_technical_content(text)
+        
         # Step 1: Fix hyphenation and word splits (especially from PDFs)
         text = self.fix_hyphenation_and_splits(text)
         
@@ -420,6 +531,9 @@ class TextProcessor:
         
         # Step 8: Final normalization
         text = self.normalize_text(text)
+        
+        # Step 9: Restore preserved technical content
+        text = self.restore_technical_content(text, preserved_content)
         
         # Calculate word count
         word_count = len(text.split()) if text else 0
