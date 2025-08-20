@@ -23,7 +23,7 @@ class TextProcessor:
         r"^Confidential",
         r"^Proprietary",
         r"^Draft",
-        r"^Version \d+",
+        r"^Version \d+(?:\.\d+)*\s+[A-Z]{2,5}-[A-Z0-9]+\s+\d+\s*\|\s*PAGE",  # Version headers like "Version 1.0 DEA-C01 1 | PAGE"
     ]
     
     # Content quality thresholds
@@ -307,20 +307,39 @@ class TextProcessor:
         for line in lines:
             line_stripped = line.strip()
             
-            # Check against header/footer patterns
-            if any(re.match(pattern, line_stripped, re.IGNORECASE) 
-                   for pattern in self.HEADER_FOOTER_PATTERNS):
+            # For lines that contain header patterns, try to extract just the content part
+            content_part = line_stripped
+            
+            # Check if line starts with a header pattern and try to extract content after it
+            for pattern in self.HEADER_FOOTER_PATTERNS:
+                match = re.match(pattern, line_stripped, re.IGNORECASE)
+                if match:
+                    # Remove the matched header from the beginning
+                    remaining_text = line_stripped[match.end():].strip()
+                    if remaining_text:
+                        # If there's content after the header, keep just the content
+                        content_part = remaining_text
+                        break
+                    else:
+                        # If it's just the header with no content, skip the line
+                        content_part = None
+                        break
+            
+            # Skip if we determined this line is just a header
+            if content_part is None:
                 continue
             
             # Skip lone numbers (likely page numbers)
-            if re.fullmatch(r"\d{1,4}", line_stripped):
+            if re.fullmatch(r"\d{1,4}", content_part):
                 continue
             
             # Skip empty lines at document boundaries
-            if not line_stripped and (len(keep) == 0 or len(keep) > 100):
+            if not content_part and (len(keep) == 0 or len(keep) > 100):
                 continue
             
-            keep.append(line)
+            # Add the content (either original line or content after header removal)
+            if content_part:
+                keep.append(content_part)
         
         return "\n".join(keep)
     
@@ -538,9 +557,17 @@ class TextProcessor:
         # Calculate word count
         word_count = len(text.split()) if text else 0
         
-        # Create detailed metadata
+        # Create detailed metadata with improved validation logic
+        # For PDFs, be more lenient with minimum content threshold
+        min_chars_threshold = 50 if content_type == "pdf" else 100
+        word_count_threshold = 20 if content_type == "pdf" else 50
+        
+        # Consider content valid if it meets either character or word count threshold
+        has_sufficient_chars = len(text.strip()) > min_chars_threshold
+        has_sufficient_words = word_count > word_count_threshold
+        
         metadata = {
-            "is_valid": len(text.strip()) > 100,  # Minimum content threshold
+            "is_valid": has_sufficient_chars or has_sufficient_words,
             "is_low_signal": is_low_signal,
             "low_signal_reason": low_signal_reason if is_low_signal else "",
             "content_type": content_type,
